@@ -29,15 +29,15 @@ const HoverIcon: React.FC<{ item: Pick<PloneContentItem, '@type' | 'portal_type'
   const type = resolveContentType(item);
   const folderish = isFolderishContent(item);
   if (folderish || type === 'Folder' || type === 'Collection' || type === 'Plone Site') {
-    return <Folder className="h-5 w-5 shrink-0 fill-sky-400/90 text-sky-400" strokeWidth={1.5} />;
+    return <Folder className="h-5 w-5 shrink-0 fill-sky-400/90 text-sky-500" strokeWidth={1.5} />;
   }
   if (type === 'Link') {
-    return <Link2 className="h-5 w-5 shrink-0 text-sky-300" />;
+    return <Link2 className="h-5 w-5 shrink-0 text-sky-600" />;
   }
   if (type === 'File' || type === 'Image') {
-    return <FileText className="h-5 w-5 shrink-0 text-red-400" />;
+    return <FileText className="h-5 w-5 shrink-0 text-red-500" />;
   }
-  return <FileText className="h-5 w-5 shrink-0 text-sky-300" />;
+  return <FileText className="h-5 w-5 shrink-0 text-ufac-blue" />;
 };
 
 type Props = {
@@ -82,19 +82,19 @@ const AdminItemHoverCard: React.FC<Props> = ({
         align={align}
         sideOffset={8}
         className={cn(
-          'w-72 border-0 bg-slate-800 p-3.5 text-white shadow-2xl shadow-black/40 rounded-2xl',
+          'w-72 rounded-2xl border border-slate-200 bg-white p-3.5 text-slate-800 shadow-lg shadow-slate-300/40',
           className
         )}
       >
         <div className="flex items-start gap-2.5">
           <HoverIcon item={item} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium leading-snug text-white">{name}</p>
-            <p className="mt-0.5 truncate text-xs text-slate-400">{typeLabel}</p>
+            <p className="truncate text-sm font-medium leading-snug text-slate-900">{name}</p>
+            <p className="mt-0.5 truncate text-xs text-slate-500">{typeLabel}</p>
           </div>
         </div>
 
-        <div className="mt-3 space-y-2 border-t border-white/10 pt-3 text-xs text-slate-300">
+        <div className="mt-3 space-y-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
           {edited && (
             <p className="flex items-center gap-2">
               <History className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />

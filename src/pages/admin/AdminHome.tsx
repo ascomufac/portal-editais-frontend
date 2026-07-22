@@ -2,10 +2,10 @@ import { Button } from '@/components/ui/button';
 import AdminItemHoverCard from '@/components/admin/AdminItemHoverCard';
 import AdminLocationPill from '@/components/admin/AdminLocationPill';
 import AdminRecentItemActions from '@/components/admin/AdminRecentItemActions';
+import AdminReviewStateBadge from '@/components/admin/AdminReviewStateBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import {
-  REVIEW_STATE_LABELS,
   getContentTypeLabel,
   getContentDisplayName,
   formatContentLocation,
@@ -158,7 +158,7 @@ const recentCardClass = (item: PloneContentItem) => {
   const privateItem = getReviewState(item) === 'private';
   const draft = isUnpublished(item) && !privateItem;
   return cn(
-    'group flex h-12 w-full min-w-0 items-center gap-1 overflow-hidden rounded-xl border border-transparent py-1.5 pl-1.5 pr-1 text-left transition',
+    'group flex min-h-[3.75rem] w-full min-w-0 items-center gap-3 overflow-hidden rounded-2xl border border-transparent px-4 py-3 text-left transition',
     privateItem
       ? 'bg-slate-100/90 hover:bg-slate-100'
       : draft
@@ -343,7 +343,7 @@ const AdminHome: React.FC = () => {
             ))}
           </ul>
         ) : (
-          <div className="grid w-full grid-cols-1 gap-2 min-[520px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4">
+          <div className="grid w-full grid-cols-1 gap-3 min-[520px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4">
             {recent.map((item) => {
               const state = getReviewState(item);
               return (
@@ -362,30 +362,21 @@ const AdminHome: React.FC = () => {
                         openRecent(item);
                       }
                     }}
-                    className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-left"
+                    className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden text-left"
                   >
-                    <RecentIcon item={item} compact />
+                    <RecentIcon item={item} />
                     <div className="min-w-0 flex-1 overflow-hidden">
-                      <div className="flex min-w-0 items-center gap-1">
+                      <div className="flex min-w-0 items-center gap-1.5">
                         <div className="min-w-0 flex-1 overflow-hidden">
                           <AdminItemHoverCard item={item} side="top" align="start">
-                            <p className="truncate text-sm font-medium leading-tight text-slate-900">
+                            <p className="truncate font-medium leading-snug text-slate-900">
                               {getContentDisplayName(item)}
                             </p>
                           </AdminItemHoverCard>
                         </div>
-                        {state && state !== 'published' && (
-                          <span
-                            className={cn(
-                              'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white',
-                              state === 'private' ? 'bg-slate-500' : 'bg-slate-400'
-                            )}
-                          >
-                            {REVIEW_STATE_LABELS[state] || state}
-                          </span>
-                        )}
+                        <AdminReviewStateBadge state={state} />
                       </div>
-                      <p className="truncate text-[10px] leading-tight text-slate-500">
+                      <p className="truncate text-xs text-slate-500">
                         {recentMetaLine(item, true)}
                       </p>
                     </div>
@@ -449,11 +440,7 @@ const AdminHome: React.FC = () => {
                 <div className="min-w-0 flex-1">
                   <p className="flex min-w-0 items-center gap-1.5 truncate font-medium text-slate-900">
                     <span className="truncate">{getContentDisplayName(folder)}</span>
-                    {getReviewState(folder) === 'private' && (
-                      <span className="shrink-0 rounded-full bg-slate-500 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
-                        Privado
-                      </span>
-                    )}
+                    <AdminReviewStateBadge state={getReviewState(folder)} />
                   </p>
                   <p className="truncate text-xs text-slate-500">em Editais</p>
                 </div>

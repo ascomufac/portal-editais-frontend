@@ -3,26 +3,36 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  adminDriveMenuContentClass,
+  adminDriveMenuIconClass,
+  adminDriveMenuItemClass,
+  adminDriveMenuSeparatorClass,
+} from '@/components/admin/adminDriveMenuStyles';
 import { cn } from '@/lib/utils';
 import {
+  ArrowDownToLine,
   ArrowUpDown,
+  ArrowUpToLine,
+  CheckCheck,
   ClipboardPaste,
   Copy,
   Eye,
   EyeOff,
   Globe,
-  MoreHorizontal,
   Pencil,
   Scissors,
+  Settings2,
   Share2,
   Trash2,
   X,
 } from 'lucide-react';
 import React from 'react';
 
-export type SortKey = 'name' | 'modified' | 'type' | 'owner';
+export type SortKey = 'position' | 'name' | 'modified' | 'type' | 'owner';
 
 type SelectionToolbarProps = {
   count: number;
@@ -38,17 +48,19 @@ type SelectionToolbarProps = {
   onDelete: () => void;
   onPublish: () => void;
   onRetract: () => void;
-  onRename: () => void;
   onShare: () => void;
   onView?: () => void;
   onEdit: () => void;
   onSort: (key: SortKey) => void;
+  onMoveToTop?: () => void;
+  onMoveToBottom?: () => void;
+  onSelectAllContained?: () => void;
   singleSelected: boolean;
   canView?: boolean;
 };
 
 /**
- * Barra contextual que aparece ao selecionar itens (padrão Google Drive).
+ * Barra contextual que aparece ao selecionar itens (padrão Google Drive / Plone).
  */
 const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   count,
@@ -64,11 +76,13 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   onDelete,
   onPublish,
   onRetract,
-  onRename,
   onShare,
   onView,
   onEdit,
   onSort,
+  onMoveToTop,
+  onMoveToBottom,
+  onSelectAllContained,
   singleSelected,
   canView = false,
 }) => {
@@ -194,8 +208,8 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
             variant="ghost"
             size="icon"
             className={iconBtn}
-            onClick={onRename}
-            title="Renomear"
+            onClick={onEdit}
+            title="Editar"
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -209,18 +223,57 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           >
             <Share2 className="h-4 w-4" />
           </Button>
+        </>
+      )}
+
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className={iconBtn}
-            onClick={onEdit}
-            title="Editar"
+            className={cn(iconBtn, 'data-[state=open]:bg-white data-[state=open]:text-ufac-blue')}
+            title="Mais ações"
+            aria-label="Mais ações"
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <Settings2 className="h-4 w-4" />
           </Button>
-        </>
-      )}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className={adminDriveMenuContentClass}>
+          <DropdownMenuItem className={adminDriveMenuItemClass} onClick={onCut}>
+            <Scissors className={adminDriveMenuIconClass} />
+            Recortar
+          </DropdownMenuItem>
+          <DropdownMenuItem className={adminDriveMenuItemClass} onClick={onCopy}>
+            <Copy className={adminDriveMenuIconClass} />
+            Copiar
+          </DropdownMenuItem>
+          {onMoveToTop && (
+            <DropdownMenuItem className={adminDriveMenuItemClass} onClick={onMoveToTop}>
+              <ArrowUpToLine className={adminDriveMenuIconClass} />
+              Mover para o topo da pasta
+            </DropdownMenuItem>
+          )}
+          {onMoveToBottom && (
+            <DropdownMenuItem className={adminDriveMenuItemClass} onClick={onMoveToBottom}>
+              <ArrowDownToLine className={adminDriveMenuIconClass} />
+              Mover para o final da pasta
+            </DropdownMenuItem>
+          )}
+          {onSelectAllContained && (
+            <>
+              <DropdownMenuSeparator className={adminDriveMenuSeparatorClass} />
+              <DropdownMenuItem
+                className={adminDriveMenuItemClass}
+                onClick={onSelectAllContained}
+              >
+                <CheckCheck className={adminDriveMenuIconClass} />
+                Selecionar todos os itens
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <div className="ml-auto flex items-center gap-1">
         <DropdownMenu>
@@ -238,6 +291,7 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           <DropdownMenuContent align="end" className="rounded-xl">
             {(
               [
+                ['position', 'Posição na pasta'],
                 ['name', 'Nome'],
                 ['modified', 'Modificação'],
                 ['type', 'Tipo'],

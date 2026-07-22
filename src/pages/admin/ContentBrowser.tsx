@@ -30,8 +30,17 @@ import AdminFilePreviewPanel from '@/components/admin/AdminFilePreviewPanel';
 import ContentEditorDialog from '@/components/admin/ContentEditorDialog';
 import HistoryDialog from '@/components/admin/HistoryDialog';
 import SelectionToolbar, { type SortKey } from '@/components/admin/SelectionToolbar';
+import { modifiedAfterFromPreset } from '@/components/admin/adminSearchUtils';
+import { invalidateAdminFolderTreeCache } from '@/components/admin/AdminFolderTree';
 import SharingDialog from '@/components/admin/SharingDialog';
 import UploadFileDialog from '@/components/admin/UploadFileDialog';
+import {
+  adminDriveMenuContentClass,
+  adminDriveMenuDangerItemClass,
+  adminDriveMenuIconClass,
+  adminDriveMenuItemClass,
+  adminDriveMenuSeparatorClass,
+} from '@/components/admin/adminDriveMenuStyles';
 import { cn } from '@/lib/utils';
 import type { AdminCreateIntent } from '@/pages/admin/AdminShell';
 import {
@@ -59,6 +68,7 @@ import {
   moveContent,
   parentPlonePath,
   renameContent,
+  reorderFolderItem,
   resolveContentType,
   toPlonePath,
   transitionWorkflow,
@@ -69,6 +79,9 @@ import {
   type PloneWorkflowTransition,
 } from '@/services/ploneContentService';
 import {
+  ArrowDownToLine,
+  ArrowUpToLine,
+  CheckCheck,
   ChevronDown,
   ChevronRight,
   ClipboardPaste,
@@ -86,6 +99,7 @@ import {
   MoreVertical,
   Pencil,
   RefreshCw,
+  Scissors,
   Share2,
   Trash2,
   Upload,
@@ -275,10 +289,18 @@ const ContentBrowser: React.FC = () => {
   const [query, setQuery] = useState(() => searchParams.get('q') || '');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>(
+    () => searchParams.get('type') || 'all'
+  );
   /** all | private | published | outros review_state */
   const [stateFilter, setStateFilter] = useState<string>('all');
-  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [creatorFilter, setCreatorFilter] = useState(
+    () => searchParams.get('creator') || ''
+  );
+  const [modifiedFilter, setModifiedFilter] = useState(
+    () => searchParams.get('modified') || 'any'
+  );
+  const [sortKey, setSortKey] = useState<SortKey>('position');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [clipboard, setClipboard] = useState<ClipboardPayload | null>(() => readClipboard());
@@ -294,8 +316,10 @@ const ContentBrowser: React.FC = () => {
       portal_type: typeFilter === 'all' ? undefined : typeFilter,
       review_state: stateFilter === 'all' ? undefined : stateFilter,
       SearchableText: query.trim() || undefined,
+      Creator: creatorFilter.trim() || undefined,
+      modifiedAfter: modifiedAfterFromPreset(modifiedFilter),
     }),
-    [typeFilter, stateFilter, query]
+    [typeFilter, stateFilter, query, creatorFilter, modifiedFilter]
   );
 
   const loadPage = useCallback(
@@ -367,6 +391,11 @@ const ContentBrowser: React.FC = () => {
     await loadPage(0, false);
   }, [loadPage]);
 
+  const reloadAndSyncTree = useCallback(async () => {
+    invalidateAdminFolderTreeCache(path);
+    await load();
+  }, [load, path]);
+
   useEffect(() => {
     setSelectedId(null);
     setSelected(new Set());
@@ -378,6 +407,9 @@ const ContentBrowser: React.FC = () => {
   useEffect(() => {
     const q = searchParams.get('q') || '';
     setQuery(q);
+    setTypeFilter(searchParams.get('type') || 'all');
+    setCreatorFilter(searchParams.get('creator') || '');
+    setModifiedFilter(searchParams.get('modified') || 'any');
   }, [searchParams]);
 
   const hasMore = items.length < itemsTotal;
@@ -414,6 +446,10 @@ const ContentBrowser: React.FC = () => {
 
   const filteredItems = useMemo(() => {
     // Filtros tipo/visibilidade/busca vão no @search; aqui só ordena o lote carregado.
+    // "position" = ordem do Plone (getObjPositionInParent), sem reordenar no cliente.
+    if (sortKey === 'position') {
+      return sortDir === 'asc' ? items : [...items].reverse();
+    }
     return [...items].sort((a, b) => {
       let cmp = 0;
       if (sortKey === 'modified') {
@@ -590,7 +626,7 @@ const ContentBrowser: React.FC = () => {
       await deleteContent(toPlonePath(deleteTarget['@id']));
       toast.success('Item excluído.');
       setDeleteTarget(null);
-      await load();
+      await reloadAndSyncTree();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Falha ao excluir.');
     }
@@ -602,7 +638,7 @@ const ContentBrowser: React.FC = () => {
       await renameContent(toPlonePath(renameTarget['@id']), renameValue.trim());
       toast.success('Item renomeado.');
       setRenameTarget(null);
-      await load();
+      await reloadAndSyncTree();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Falha ao renomear.');
     }
@@ -612,7 +648,7 @@ const ContentBrowser: React.FC = () => {
     try {
       await copyContent(toPlonePath(item['@id']), path);
       toast.success('Cópia criada nesta pasta.');
-      await load();
+      await reloadAndSyncTree();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Falha ao copiar.');
     }
@@ -624,7 +660,7 @@ const ContentBrowser: React.FC = () => {
       await moveContent(toPlonePath(moveTarget['@id']), movePath.trim());
       toast.success('Item movido.');
       setMoveTarget(null);
-      await load();
+      await reloadAndSyncTree();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Falha ao mover.');
     }
@@ -767,6 +803,67 @@ const ContentBrowser: React.FC = () => {
     );
   };
 
+  const putItemClipboard = (item: PloneContentItem, mode: 'cut' | 'copy') => {
+    const payload: ClipboardPayload = {
+      mode,
+      paths: [toPlonePath(item['@id'])],
+      sourceFolder: path,
+    };
+    writeClipboard(payload);
+    setClipboard(payload);
+    toast.success(
+      mode === 'cut'
+        ? 'Item recortado. Vá à pasta destino e cole.'
+        : 'Item copiado. Vá à pasta destino e cole.'
+    );
+  };
+
+  const subsetIdsForReorder = () =>
+    items.map((i) => i.id).filter((id): id is string => Boolean(id));
+
+  const reorderItems = async (
+    targets: PloneContentItem[],
+    delta: 'top' | 'bottom'
+  ) => {
+    const withId = targets.filter((i) => i.id);
+    if (!withId.length) {
+      toast.message('Não foi possível identificar o id dos itens selecionados.');
+      return;
+    }
+    const subsetIds = subsetIdsForReorder();
+    const ordered = [...withId].sort(
+      (a, b) =>
+        items.findIndex((i) => i['@id'] === a['@id']) -
+        items.findIndex((i) => i['@id'] === b['@id'])
+    );
+    // Preserva ordem relativa: no topo processa do último ao primeiro;
+    // no final, do primeiro ao último.
+    const toProcess = delta === 'top' ? [...ordered].reverse() : ordered;
+    let ok = 0;
+    let fail = 0;
+    for (const item of toProcess) {
+      try {
+        await reorderFolderItem(path, item.id!, delta, subsetIds);
+        ok += 1;
+      } catch {
+        fail += 1;
+      }
+    }
+    setSortKey('position');
+    setSortDir('asc');
+    if (ok) {
+      toast.success(
+        delta === 'top'
+          ? `${ok} item(ns) movido(s) para o topo.`
+          : `${ok} item(ns) movido(s) para o final.`
+      );
+    }
+    if (fail) {
+      toast.error(`${fail} item(ns) falharam ao reordenar.`);
+    }
+    await load();
+  };
+
   const handlePaste = async () => {
     const clip = clipboard || readClipboard();
     if (!clip?.paths.length) {
@@ -793,6 +890,11 @@ const ContentBrowser: React.FC = () => {
     }
     if (ok) toast.success(`${ok} item(ns) colado(s).`);
     if (fail) toast.error(`${fail} item(ns) falharam ao colar.`);
+    if (clip.mode === 'cut') {
+      invalidateAdminFolderTreeCache();
+    } else {
+      invalidateAdminFolderTreeCache(path);
+    }
     await load();
   };
 
@@ -809,7 +911,7 @@ const ContentBrowser: React.FC = () => {
     setBulkDeleteOpen(false);
     setSelected(new Set());
     toast.success(`${ok} item(ns) excluído(s).`);
-    await load();
+    await reloadAndSyncTree();
   };
 
   const primarySelected = selectedItems[0] || null;
@@ -824,35 +926,75 @@ const ContentBrowser: React.FC = () => {
   ) => (
     <>
       {canViewContent(item) && (
-        <Item onClick={() => openView(item)}>
-          <Eye className="mr-2 h-4 w-4" />
+        <Item className={adminDriveMenuItemClass} onClick={() => openView(item)}>
+          <Eye className={adminDriveMenuIconClass} />
           Visualizar
         </Item>
       )}
-      <Item onClick={() => openEdit(item)}>
-        <Pencil className="mr-2 h-4 w-4" />
+      <Item className={adminDriveMenuItemClass} onClick={() => openEdit(item)}>
+        <Pencil className={adminDriveMenuIconClass} />
         Editar
       </Item>
       <Item
+        className={adminDriveMenuItemClass}
         onClick={() => {
           setSharingPath(toPlonePath(item['@id']));
           setSharingOpen(true);
         }}
       >
-        <Share2 className="mr-2 h-4 w-4" />
+        <Share2 className={adminDriveMenuIconClass} />
         Compartilhar
       </Item>
       <Item
+        className={adminDriveMenuItemClass}
         onClick={() => {
           setHistoryPath(toPlonePath(item['@id']));
           setHistoryTitle(getContentDisplayName(item));
           setHistoryOpen(true);
         }}
       >
-        <History className="mr-2 h-4 w-4" />
+        <History className={adminDriveMenuIconClass} />
         Histórico
       </Item>
+      <Separator className={adminDriveMenuSeparatorClass} />
       <Item
+        className={adminDriveMenuItemClass}
+        onClick={() => putItemClipboard(item, 'cut')}
+      >
+        <Scissors className={adminDriveMenuIconClass} />
+        Recortar
+      </Item>
+      <Item
+        className={adminDriveMenuItemClass}
+        onClick={() => putItemClipboard(item, 'copy')}
+      >
+        <Copy className={adminDriveMenuIconClass} />
+        Copiar
+      </Item>
+      <Item
+        className={adminDriveMenuItemClass}
+        onClick={() => void reorderItems([item], 'top')}
+      >
+        <ArrowUpToLine className={adminDriveMenuIconClass} />
+        Mover para o topo da pasta
+      </Item>
+      <Item
+        className={adminDriveMenuItemClass}
+        onClick={() => void reorderItems([item], 'bottom')}
+      >
+        <ArrowDownToLine className={adminDriveMenuIconClass} />
+        Mover para o final da pasta
+      </Item>
+      <Item
+        className={adminDriveMenuItemClass}
+        onClick={() => toggleSelectAll(true)}
+      >
+        <CheckCheck className={adminDriveMenuIconClass} />
+        Selecionar todos os itens
+      </Item>
+      <Separator className={adminDriveMenuSeparatorClass} />
+      <Item
+        className={adminDriveMenuItemClass}
         onClick={() => {
           setRenameTarget(item);
           setRenameValue(item.id || '');
@@ -860,11 +1002,12 @@ const ContentBrowser: React.FC = () => {
       >
         Renomear (id)
       </Item>
-      <Item onClick={() => handleCopyHere(item)}>
-        <Copy className="mr-2 h-4 w-4" />
+      <Item className={adminDriveMenuItemClass} onClick={() => handleCopyHere(item)}>
+        <Copy className={adminDriveMenuIconClass} />
         Fazer uma cópia
       </Item>
       <Item
+        className={adminDriveMenuItemClass}
         onClick={() => {
           setMoveTarget(item);
           setMovePath('');
@@ -874,6 +1017,7 @@ const ContentBrowser: React.FC = () => {
       </Item>
       {isUnpublished(item) && (
         <Item
+          className={adminDriveMenuItemClass}
           onClick={async () => {
             try {
               const done = await publishItem(item);
@@ -892,12 +1036,13 @@ const ContentBrowser: React.FC = () => {
             }
           }}
         >
-          <Workflow className="mr-2 h-4 w-4" />
+          <Workflow className={adminDriveMenuIconClass} />
           Publicar
         </Item>
       )}
       {isPublished(item) && (
         <Item
+          className={adminDriveMenuItemClass}
           onClick={async () => {
             try {
               const done = await retractItem(item);
@@ -918,39 +1063,54 @@ const ContentBrowser: React.FC = () => {
             }
           }}
         >
-          <EyeOff className="mr-2 h-4 w-4" />
+          <EyeOff className={adminDriveMenuIconClass} />
           Tornar privado
         </Item>
       )}
-      <Separator />
+      <Separator className={adminDriveMenuSeparatorClass} />
       <Item
-        className="text-red-600 focus:text-red-600"
+        className={adminDriveMenuDangerItemClass}
         onClick={() => setDeleteTarget(item)}
       >
-        <Trash2 className="mr-2 h-4 w-4" />
+        <Trash2 className={adminDriveMenuIconClass} />
         Remover
       </Item>
     </>
   );
 
   const itemActions = (item: PloneContentItem) => (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button
+          type="button"
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-full text-slate-500 opacity-60 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+          className="h-9 w-9 shrink-0 rounded-full text-slate-500 opacity-70 transition-opacity hover:bg-slate-200/80 hover:opacity-100 focus-visible:opacity-100 data-[state=open]:bg-slate-200/80 data-[state=open]:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          title="Ações"
+          aria-label="Ações"
         >
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52 rounded-xl">
+      <DropdownMenuContent
+        align="end"
+        sideOffset={6}
+        className={adminDriveMenuContentClass}
+        onClick={(e) => e.stopPropagation()}
+      >
         {itemMenuItems(item, DropdownMenuItem, DropdownMenuSeparator)}
       </DropdownMenuContent>
     </DropdownMenu>
   );
 
-  const wrapItemContextMenu = (item: PloneContentItem, node: React.ReactElement) => (
+  /** Clique direito no conteúdo; ⋮ fica fora do trigger para o menu abrir. */
+  const wrapItemContextMenu = (
+    item: PloneContentItem,
+    main: React.ReactElement,
+    shellClassName: string
+  ) => (
     <ContextMenu
       onOpenChange={(open) => {
         if (open) {
@@ -959,8 +1119,14 @@ const ContentBrowser: React.FC = () => {
         }
       }}
     >
-      <ContextMenuTrigger asChild>{node}</ContextMenuTrigger>
-      <ContextMenuContent className="w-52 rounded-xl">
+      <div
+        className={shellClassName}
+        data-plone-path={toPlonePath(item['@id'])}
+      >
+        <ContextMenuTrigger asChild>{main}</ContextMenuTrigger>
+        {itemActions(item)}
+      </div>
+      <ContextMenuContent className={adminDriveMenuContentClass}>
         {itemMenuItems(item, ContextMenuItem, ContextMenuSeparator)}
       </ContextMenuContent>
     </ContextMenu>
@@ -993,14 +1159,13 @@ const ContentBrowser: React.FC = () => {
     const label = REVIEW_STATE_LABELS[state] || state;
     return (
       <span
+        title={label}
         className={cn(
-          'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide',
-          state === 'private'
-            ? 'bg-slate-500 text-white'
-            : 'bg-slate-400 text-white'
+          'shrink-0 text-[10px] font-medium leading-none tracking-wide',
+          state === 'private' ? 'text-slate-400' : 'text-amber-600/90'
         )}
       >
-        {label}
+        · {label}
       </span>
     );
   };
@@ -1056,7 +1221,7 @@ const ContentBrowser: React.FC = () => {
 
   const chipClass = (active: boolean) =>
     cn(
-      'h-8 rounded-full border px-3 text-sm font-medium transition-colors',
+      'inline-flex h-8 items-center gap-1 rounded-full border px-3 text-sm font-medium leading-none transition-colors',
       active
         ? 'border-ufac-blue bg-ufac-lightBlue text-ufac-blue'
         : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
@@ -1184,11 +1349,6 @@ const ContentBrowser: React.FC = () => {
           onDelete={() => setBulkDeleteOpen(true)}
           onPublish={handleBulkPublish}
           onRetract={handleBulkRetract}
-          onRename={() => {
-            if (!primarySelected) return;
-            setRenameTarget(primarySelected);
-            setRenameValue(primarySelected.id || '');
-          }}
           onShare={() => {
             if (!primarySelected) return;
             setSharingPath(toPlonePath(primarySelected['@id']));
@@ -1201,6 +1361,9 @@ const ContentBrowser: React.FC = () => {
             if (primarySelected) openEdit(primarySelected);
           }}
           onSort={(key) => handleColumnSort(key)}
+          onMoveToTop={() => void reorderItems(selectedItems, 'top')}
+          onMoveToBottom={() => void reorderItems(selectedItems, 'bottom')}
+          onSelectAllContained={() => toggleSelectAll(true)}
         />
       )}
 
@@ -1210,7 +1373,7 @@ const ContentBrowser: React.FC = () => {
             <DropdownMenuTrigger asChild>
               <button type="button" className={chipClass(typeFilter !== 'all')}>
                 Tipo
-                <ChevronDown className="ml-1 inline h-3.5 w-3.5" />
+                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="rounded-xl">
@@ -1228,12 +1391,15 @@ const ContentBrowser: React.FC = () => {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" className={chipClass(sortKey !== 'name')}>
+              <button type="button" className={chipClass(sortKey !== 'position')}>
                 Ordenar
-                <ChevronDown className="ml-1 inline h-3.5 w-3.5" />
+                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="rounded-xl">
+              <DropdownMenuItem onClick={() => handleColumnSort('position')}>
+                Posição na pasta
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleColumnSort('name')}>Nome</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleColumnSort('modified')}>
                 Modificação
@@ -1254,7 +1420,7 @@ const ContentBrowser: React.FC = () => {
                   : privateCount > 0
                     ? ` (${privateCount})`
                     : ''}
-                <ChevronDown className="ml-1 inline h-3.5 w-3.5" />
+                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="rounded-xl">
@@ -1301,7 +1467,7 @@ const ContentBrowser: React.FC = () => {
               <DropdownMenuTrigger asChild>
                 <button type="button" className={chipClass(false)}>
                   Estado
-                  <ChevronDown className="ml-1 inline h-3.5 w-3.5" />
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="rounded-xl">
@@ -1385,7 +1551,6 @@ const ContentBrowser: React.FC = () => {
                   {wrapItemContextMenu(
                     item,
                     <div
-                      data-plone-path={toPlonePath(item['@id'])}
                       role="button"
                       tabIndex={0}
                       onClick={(e) => handleItemClick(item, e)}
@@ -1396,7 +1561,7 @@ const ContentBrowser: React.FC = () => {
                           handleItemClick(item);
                         }
                       }}
-                      className={itemCardClass(item, active)}
+                      className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-left"
                     >
                       <div
                         className={cn(
@@ -1429,13 +1594,8 @@ const ContentBrowser: React.FC = () => {
                         </p>
                         {stateBadge(item)}
                       </div>
-                      <div
-                        className="flex h-8 shrink-0 items-center self-center"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {itemActions(item)}
-                      </div>
-                    </div>
+                    </div>,
+                    itemCardClass(item, active)
                   )}
                 </React.Fragment>
               );
@@ -1531,7 +1691,6 @@ const ContentBrowser: React.FC = () => {
                   {wrapItemContextMenu(
                     item,
                     <div
-                      data-plone-path={toPlonePath(item['@id'])}
                       role="button"
                       tabIndex={0}
                       onClick={(e) => handleItemClick(item, e)}
@@ -1542,12 +1701,14 @@ const ContentBrowser: React.FC = () => {
                           handleItemClick(item);
                         }
                       }}
-                      className={itemRowClass(item, active)}
+                      className="contents"
                     >
                       <div onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={isChecked}
-                          onCheckedChange={(v) => toggleSelect(item['@id'], v === true)}
+                          onCheckedChange={(v) =>
+                            toggleSelect(item['@id'], v === true)
+                          }
                           aria-label={`Selecionar ${getContentDisplayName(item)}`}
                         />
                       </div>
@@ -1571,13 +1732,8 @@ const ContentBrowser: React.FC = () => {
                       <div className="hidden truncate text-sm text-slate-600 lg:block">
                         {getContentTypeLabel(item)}
                       </div>
-                      <div
-                        className="flex justify-end"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {itemActions(item)}
-                      </div>
-                    </div>
+                    </div>,
+                    itemRowClass(item, active)
                   )}
                 </li>
               );
@@ -1621,7 +1777,7 @@ const ContentBrowser: React.FC = () => {
         item={editingItem}
         onSaved={async () => {
           setEditorOpen(false);
-          await load();
+          await reloadAndSyncTree();
         }}
       />
 
@@ -1631,7 +1787,7 @@ const ContentBrowser: React.FC = () => {
         parentPath={path}
         onUploaded={async () => {
           setUploadOpen(false);
-          await load();
+          await reloadAndSyncTree();
         }}
       />
 
