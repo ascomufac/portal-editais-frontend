@@ -1,6 +1,9 @@
+'use client';
+
 
 import { useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const UfacLogo = () => (
   <svg width="267" height="33" viewBox="0 0 267 33" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -25,7 +28,7 @@ const UfacLogo = () => (
 );
 
 const NotFound = () => {
-  const location = useLocation();
+  const location = { pathname: usePathname() };
 
   useEffect(() => {
     console.error(
@@ -43,7 +46,7 @@ const NotFound = () => {
         <div className="text-center">
           <h1 className="text-4xl font-bold mb-4">404</h1>
           <p className="text-xl text-gray-600 mb-4">Oops! Page not found</p>
-          <Link to="/" className="text-blue-500 hover:text-blue-700 underline">
+          <Link href="/" className="text-blue-500 hover:text-blue-700 underline">
             Return to Home
           </Link>
         </div>

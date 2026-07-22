@@ -50,7 +50,7 @@ interface FilterToolbarProps {
 /**
  * Componente de barra de ferramentas para filtros e ordenação
  * @param {FilterToolbarProps} props - Propriedades do componente
- * @returns {JSX.Element} Componente React renderizado
+ * @returns {React.JSX.Element} Componente React renderizado
  */
 const FilterToolbar: React.FC<FilterToolbarProps> = ({
   onSortChange,

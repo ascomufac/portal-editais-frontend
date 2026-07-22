@@ -2,11 +2,12 @@
  * Cliente HTTP shared para a API Plone (++api++), com Bearer JWT quando logado.
  */
 import { ensureAuthCookies, getAccessToken } from '@/services/authService';
-import { BASE_URL } from '@/services/ploneConfig';
+import { BASE_URL, getRevalidateSeconds } from '@/services/ploneConfig';
 
 export type ApiFetchOptions = RequestInit & {
   /** Se false, não envia Authorization mesmo com token */
   auth?: boolean;
+  next?: { revalidate?: number | false; tags?: string[] };
 };
 
 export class ApiError extends Error {
@@ -60,9 +61,17 @@ export const apiFetch = async (
     }
   }
 
+  const method = String(rest.method || 'GET').toUpperCase();
+  const isServer = typeof window === 'undefined';
+  const cacheNext =
+    isServer && method === 'GET' && rest.next === undefined
+      ? { revalidate: getRevalidateSeconds() }
+      : rest.next;
+
   return fetch(`${BASE_URL}${normalized}`, {
     ...rest,
-    credentials: 'same-origin',
+    ...(cacheNext !== undefined ? { next: cacheNext } : {}),
+    credentials: isServer ? 'omit' : 'same-origin',
     headers,
   });
 };

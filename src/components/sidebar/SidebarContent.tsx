@@ -4,7 +4,8 @@ import { cn } from '@/lib/utils';
 import { MenuItem } from '@/services/editalService';
 import { ChevronDown } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import SidebarGroup from './SidebarGroup';
 import { HomeIcon } from './SidebarIcons';
 import SidebarLink from './SidebarLink';
@@ -20,7 +21,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
   isCollapsed = false,
 }) => {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
-  const location = useLocation();
+  const pathname = usePathname();
   const { menuItems, isLoading, error } = useMenuItems();
 
   const isItemActive = (item: MenuItem): boolean => {
@@ -29,11 +30,11 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
     }
     if (!item.href || item.href === '#' || item.href.startsWith('http')) return false;
     return (
-      location.pathname === item.href ||
-      location.pathname.startsWith(`${item.href}/`) ||
+      pathname === item.href ||
+      pathname.startsWith(`${item.href}/`) ||
       (item.url
-        ? location.pathname.startsWith(`/setor/${item.id}`) ||
-          location.pathname.startsWith(`/edital/${item.url}`)
+        ? pathname.startsWith(`/setor/${item.id}`) ||
+          pathname.startsWith(`/edital/${item.url}`)
         : false)
     );
   };
@@ -57,7 +58,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
       setExpandedItems((prev) => Array.from(new Set([...prev, ...toExpand])));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, menuItems]);
+  }, [pathname, menuItems]);
 
   const toggleExpand = (itemId: string) => {
     setExpandedItems((prev) =>
@@ -93,25 +94,23 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
     }
 
     return (
-      <NavLink
+      <Link
         key={`${item.id}-${item.href}`}
-        to={item.href}
+        href={item.href}
         onClick={handleDirectLinkClick}
         title={item.title}
         style={style}
-        className={({ isActive }) =>
-          cn(
-            'block rounded-md py-1.5 pr-3 text-sm transition-colors',
-            depth === 0 && 'px-3 py-2',
-            isActive
-              ? 'bg-ufac-lightBlue font-medium text-ufac-blue'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-ufac-blue',
-            depth > 0 && 'ml-2 border-l border-slate-200'
-          )
-        }
+        className={cn(
+          'block rounded-md py-1.5 pr-3 text-sm transition-colors',
+          depth === 0 && 'px-3 py-2',
+          isItemActive(item)
+            ? 'bg-ufac-lightBlue font-medium text-ufac-blue'
+            : 'text-gray-600 hover:bg-gray-100 hover:text-ufac-blue',
+          depth > 0 && 'ml-2 border-l border-slate-200'
+        )}
       >
         <span className="line-clamp-2">{item.title}</span>
-      </NavLink>
+      </Link>
     );
   };
 
@@ -160,8 +159,8 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
               {item.title}
             </button>
           ) : (
-            <NavLink
-              to={item.href}
+            <Link
+              href={item.href}
               onClick={handleDirectLinkClick}
               title={item.title}
               className={cn(
@@ -172,7 +171,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
               )}
             >
               {item.title}
-            </NavLink>
+            </Link>
           )}
         </div>
 

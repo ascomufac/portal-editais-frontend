@@ -1,3 +1,5 @@
+'use client';
+
 import AuthMenu from '@/components/auth/AuthMenu';
 import UfacEditaisLogo from '@/components/brand/UfacEditaisLogo';
 import Sidebar from '@/components/Sidebar';
@@ -5,7 +7,8 @@ import SearchBar from '@/components/SearchBar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn, getSidebarCollapsedState, toggleSidebarCookie } from '@/lib/utils';
 import React, { useEffect, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Menu, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -15,14 +18,17 @@ interface MainLayoutProps {
   className?: string;
 }
 
-const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, className }) => {
+const MainLayout: React.FC<MainLayoutProps> = ({ children, className }) => {
   const isMobile = useIsMobile();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() =>
-    typeof window === 'undefined' ? true : window.innerWidth >= 768
-  );
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getSidebarCollapsedState());
+  const pathname = usePathname();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const location = useLocation();
+
+  useEffect(() => {
+    setIsSidebarCollapsed(getSidebarCollapsedState());
+    setIsSidebarOpen(window.innerWidth >= 768);
+  }, []);
 
   useEffect(() => {
     setIsSidebarOpen(!isMobile);
@@ -30,7 +36,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, className 
 
   useEffect(() => {
     setMobileSearchOpen(false);
-  }, [location.pathname]);
+  }, [pathname]);
 
   useEffect(() => {
     if (!isMobile || !isSidebarOpen) return;
@@ -47,22 +53,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, className 
     toggleSidebarCookie(newState);
   };
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen((open) => !open);
-  };
+  const toggleSidebar = () => setIsSidebarOpen((open) => !open);
 
   const closeSidebar = () => {
-    if (isMobile) {
-      setIsSidebarOpen(false);
-    }
+    if (isMobile) setIsSidebarOpen(false);
   };
 
   return (
-    <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-ufac-background">
-      <div className="fixed top-0 left-0 right-0 z-50 pt-[env(safe-area-inset-top)]">
-        <header className="relative flex h-14 sm:h-16 items-center gap-2 sm:gap-3 bg-ufac-blue px-2 sm:px-6">
-          {isMobile && mobileSearchOpen ? (
-            <div className="flex min-w-0 flex-1 items-center gap-1">
+    <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-background">
+      <div className="fixed inset-x-0 top-0 z-50">
+        <header className="relative flex h-14 items-center gap-2 bg-ufac-blue px-2 sm:h-16 sm:gap-3 sm:px-6">
+          {mobileSearchOpen && isMobile ? (
+            <div className="flex w-full items-center gap-2">
               <Button
                 variant="ghost"
                 size="icon"
@@ -73,7 +75,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, className 
                 <X className="h-5 w-5" />
               </Button>
               <div className="min-w-0 flex-1">
-                <SearchBar compact autoFocus onRequestClose={() => setMobileSearchOpen(false)} />
+                <SearchBar
+                  compact
+                  autoFocus
+                  onRequestClose={() => setMobileSearchOpen(false)}
+                />
               </div>
             </div>
           ) : (
@@ -90,12 +96,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, className 
                 </Button>
               )}
 
-              <NavLink to="/" className="shrink-0" aria-label="Página inicial">
+              <Link href="/" className="shrink-0" aria-label="Página inicial">
                 <UfacEditaisLogo
                   variant="onDark"
                   className="h-5 w-auto max-w-[110px] sm:h-6 sm:max-w-none"
                 />
-              </NavLink>
+              </Link>
 
               {isMobile ? (
                 <div className="ml-auto flex shrink-0 items-center gap-0.5">
@@ -112,7 +118,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, className 
                 </div>
               ) : (
                 <>
-                  <div className="min-w-0 flex-1 flex justify-end md:justify-center px-2 sm:px-4">
+                  <div className="flex min-w-0 flex-1 justify-end px-2 sm:px-4 md:justify-center">
                     <SearchBar compact />
                   </div>
                   <AuthMenu />
@@ -147,7 +153,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, className 
               'min-h-0 flex-1',
               className
                 ? className
-                : 'overflow-y-auto p-3 sm:p-6 md:p-8 pb-[max(1rem,env(safe-area-inset-bottom))]'
+                : 'overflow-y-auto p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 md:p-8'
             )}
           >
             {children}

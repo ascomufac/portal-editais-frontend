@@ -1,3 +1,5 @@
+'use client';
+
 import CategoryHeader from '@/components/category/CategoryHeader';
 import EditalCard from '@/components/EditalCard';
 import DateRangeFilter, {
@@ -37,7 +39,7 @@ import {
 	LayoutGrid,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams, useRouter } from 'next/navigation';
 
 /**
  * Função utilitária para formatar a data no formato pt-BR
@@ -77,10 +79,12 @@ const SORT_OPTIONS = [
 
 /**
  * Página dinâmica para exibir conteúdo de qualquer setor
- * @returns {JSX.Element} Componente React renderizado
+ * @returns {React.JSX.Element} Componente React renderizado
  */
 const SetorPage: React.FC = () => {
-	const { setor, page } = useParams<{ setor: string; page?: string }>();
+	const params = useParams<{ setor: string; page?: string }>();
+	const setor = params.setor;
+	const page = params.page;
 	const [categoryData, setCategoryData] = useState<EditalResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -104,14 +108,14 @@ const SetorPage: React.FC = () => {
 		to: '',
 	});
 
-	const navigate = useNavigate();
+	const router = useRouter();
 
 	// Extração do número da página da URL
 	const getPageFromURL = () => Number(page ?? '1');
 
 	const goToFirstPage = () => {
 		if (setor && getPageFromURL() !== 1) {
-			navigate(`/setor/${setor}/1`, { replace: true });
+			router.replace(`/setor/${setor}/1`);
 		} else {
 			setStart(0);
 		}
@@ -195,7 +199,7 @@ const SetorPage: React.FC = () => {
 				if (meta['@type'] === 'Link') {
 					const remoteUrl = (meta as EditalResponse & { remoteUrl?: string }).remoteUrl;
 					if (remoteUrl?.includes('www3.ufac.br')) {
-						navigate(toEditalHref(remoteUrl), { replace: true });
+						router.replace(toEditalHref(remoteUrl));
 						return;
 					}
 					if (remoteUrl) {
@@ -210,7 +214,7 @@ const SetorPage: React.FC = () => {
 					(!meta.items || meta.items.length === 0) &&
 					meta.text
 				) {
-					navigate(toEditalHref(toSitePath(meta['@id'])), { replace: true });
+					router.replace(toEditalHref(toSitePath(meta['@id'])));
 					return;
 				}
 
@@ -247,12 +251,12 @@ const SetorPage: React.FC = () => {
 					const lastPage = Math.ceil(total / limit);
 					const currentPage = getPageFromURL();
 					if (currentPage > lastPage) {
-						navigate(`/setor/${setor}/${lastPage}`);
+						router.push(`/setor/${setor}/${lastPage}`);
 						return;
 					}
 
 					if (currentPage < 1) {
-						navigate(`/setor/${setor}/1`);
+						router.push(`/setor/${setor}/1`);
 						return;
 					}
 				}
@@ -503,7 +507,7 @@ const SetorPage: React.FC = () => {
 									value={String(limit)}
 									onValueChange={(val) => {
 										setLimit(Number(val));
-										navigate(`/setor/${setor}/1`);
+										router.push(`/setor/${setor}/1`);
 									}}>
 									<SelectTrigger className='w-[120px] h-10 border border-gray-300 text-sm'>
 										<SelectValue />
@@ -526,7 +530,7 @@ const SetorPage: React.FC = () => {
 									onClick={() => {
 										const currentPage = getPageFromURL();
 										const newPage = Math.max(1, currentPage - 1);
-										navigate(`/setor/${setor}/${newPage}`);
+										router.push(`/setor/${setor}/${newPage}`);
 									}}
 									disabled={start === 0}
 									className='h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 sm:h-auto sm:px-4 sm:py-2'>
@@ -542,7 +546,7 @@ const SetorPage: React.FC = () => {
 									onClick={() => {
 										const currentPage = getPageFromURL();
 										const newPage = currentPage + 1;
-										navigate(`/setor/${setor}/${newPage}`);
+										router.push(`/setor/${setor}/${newPage}`);
 									}}
 									disabled={start + limit >= totalItems}
 									className='h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 sm:h-auto sm:px-4 sm:py-2'>
@@ -569,7 +573,7 @@ const SetorPage: React.FC = () => {
 												val >= 1 &&
 												val <= Math.ceil(totalItems / limit)
 											) {
-												navigate(`/setor/${setor}/${val}`);
+												router.push(`/setor/${setor}/${val}`);
 											}
 										}
 									}}

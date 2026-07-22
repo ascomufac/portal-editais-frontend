@@ -43,7 +43,7 @@ import {
   adminDriveMenuSeparatorClass,
 } from '@/components/admin/adminDriveMenuStyles';
 import { cn } from '@/lib/utils';
-import type { AdminCreateIntent } from '@/pages/admin/AdminShell';
+import type { AdminCreateIntent } from '@/views/admin/AdminShell';
 import {
   clearClipboard,
   readClipboard,

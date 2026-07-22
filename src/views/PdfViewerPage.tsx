@@ -1,9 +1,11 @@
+'use client';
+
 import React, { useEffect } from 'react';
 import PdfViewer from '@/components/pdf/PdfViewer';
 import MainLayout from '@/layouts/MainLayout';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn, getSidebarCollapsedState } from '@/lib/utils';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'next/navigation';
 
 /**
  * Página de visualização de PDF

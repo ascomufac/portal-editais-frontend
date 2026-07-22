@@ -1,3 +1,5 @@
+'use client';
+
 import EditalCard from '@/components/EditalCard';
 import FileTypeIcon, {
   FILE_KIND_STYLES,
@@ -52,7 +54,7 @@ import {
   Settings2,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const RESULTS_PER_PAGE = 12;
 
@@ -147,8 +149,8 @@ const getResultHref = (result: SearchResult): string => {
 };
 
 const SearchResults: React.FC = () => {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const query = searchParams.get('q') || '';
   const sectionParam = searchParams.get('section') || 'all';
@@ -217,9 +219,8 @@ const SearchResults: React.FC = () => {
 
   const handleSectionChange = (newSection: string) => {
     setSection(newSection as SearchSection);
-    navigate(
-      `/resultados-busca?q=${encodeURIComponent(query)}&section=${newSection}`,
-      { replace: true }
+    router.replace(
+      `/resultados-busca?q=${encodeURIComponent(query)}&section=${newSection}`
     );
   };
 
@@ -256,7 +257,7 @@ const SearchResults: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 className="-ml-2 h-9 shrink-0 gap-1.5 px-2 text-gray-600 hover:bg-gray-100/80 hover:text-gray-900"
-                onClick={() => navigate(-1)}
+                onClick={() => router.back()}
               >
                 <ArrowLeft size={16} className="shrink-0" />
                 Voltar

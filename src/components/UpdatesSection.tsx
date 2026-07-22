@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { CalendarClock, Loader2 } from 'lucide-react';
 import React from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
 export interface Update {
@@ -100,7 +100,7 @@ const UpdatesSection: React.FC<UpdatesSectionProps> = ({
               );
 
               return update.href ? (
-                <Link key={update.id} to={update.href} className="block">
+                <Link key={update.id} href={update.href} className="block">
                   {content}
                 </Link>
               ) : (

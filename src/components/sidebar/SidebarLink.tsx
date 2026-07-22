@@ -1,8 +1,11 @@
+'use client';
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import React from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 /** Slot fixo para todos os ícones do menu (mesma escala visual) */
 export const sidebarIconSlotClass =
@@ -28,27 +31,27 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
   exactMatch = false,
 }) => {
   const isMobile = useIsMobile();
-  const location = useLocation();
-  const navigate = useNavigate();
+  const pathname = usePathname();
+  const router = useRouter();
 
   const isActive = exactMatch
-    ? location.pathname === to
-    : location.pathname === to || (to !== '/' && location.pathname.startsWith(to));
+    ? pathname === to
+    : pathname === to || (to !== '/' && pathname.startsWith(to));
 
   const handleClick = (e: React.MouseEvent) => {
     if (isCollapsed && !isMobile) {
       e.preventDefault();
-      navigate(to);
-      if (onClick) onClick();
+      router.push(to);
+      onClick?.();
     } else {
-      if (onClick) onClick();
+      onClick?.();
       if (closeSidebar && isMobile) closeSidebar();
     }
   };
 
   const linkClasses = cn(
-    'sidebar-link flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md min-h-12 hover:rounded-md transition-all duration-200',
-    isActive ? 'text-ufac-blue bg-ufac-lightBlue' : 'text-gray-700 hover:bg-gray-100',
+    'sidebar-link flex min-h-12 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 hover:rounded-md',
+    isActive ? 'bg-ufac-lightBlue text-ufac-blue' : 'text-gray-700 hover:bg-gray-100',
     isCollapsed && 'justify-center px-2'
   );
 
@@ -61,11 +64,14 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
       <TooltipProvider delayDuration={100}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <NavLink to={to} className={linkClasses} onClick={handleClick}>
+            <Link href={to} className={linkClasses} onClick={handleClick}>
               {iconSlot}
-            </NavLink>
+            </Link>
           </TooltipTrigger>
-          <TooltipContent side="right" className="bg-white text-gray-800 border border-gray-200 shadow-md">
+          <TooltipContent
+            side="right"
+            className="border border-gray-200 bg-white text-gray-800 shadow-md"
+          >
             <p>{children}</p>
           </TooltipContent>
         </Tooltip>
@@ -74,10 +80,10 @@ const SidebarLink: React.FC<SidebarLinkProps> = ({
   }
 
   return (
-    <NavLink to={to} className={linkClasses} onClick={handleClick}>
+    <Link href={to} className={linkClasses} onClick={handleClick}>
       {iconSlot}
       <span>{children}</span>
-    </NavLink>
+    </Link>
   );
 };
 

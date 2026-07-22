@@ -9,11 +9,11 @@ import {
 } from '@/services/editalService';
 import { FileText } from 'lucide-react';
 import { createElement, useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { usePathname, useRouter } from 'next/navigation';
 
 export function useEditalDetails(editalId: string | undefined) {
-  const { pathname } = useLocation();
-  const navigate = useNavigate();
+  const pathname = usePathname();
+  const router = useRouter();
   const [edital, setEdital] = useState<EditalType | null>(null);
   const [documents, setDocuments] = useState<EditalDocumentType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -85,7 +85,7 @@ export function useEditalDetails(editalId: string | undefined) {
       if (data['@type'] === 'Link' && data.remoteUrl) {
         if (String(data.remoteUrl).includes('www3.ufac.br')) {
           const target = toEditalHref(data.remoteUrl);
-          navigate(target, { replace: true });
+          router.replace(target);
           return;
         }
         window.location.href = data.remoteUrl;
@@ -180,7 +180,7 @@ export function useEditalDetails(editalId: string | undefined) {
       setBreadcrumbItems((prev) => [...prev, { id: folderId, title: folderTitle }]);
 
       const path = folderId.includes('ufac.br') ? toSitePath(folderId) : folderId;
-      navigate(toEditalHref(path));
+      router.push(toEditalHref(path));
       await fetchData(path, folderId);
     } catch (err) {
       console.error('Error navigating to folder:', err);
@@ -204,7 +204,7 @@ export function useEditalDetails(editalId: string | undefined) {
       if (breadcrumbItems.length > 1) {
         const previousItem = breadcrumbItems[breadcrumbItems.length - 2];
         const path = toSitePath(previousItem.id);
-        navigate(toEditalHref(path));
+        router.push(toEditalHref(path));
         setCurrentPath((prev) => prev.slice(0, -1));
         setBreadcrumbItems((prev) => prev.slice(0, -1));
         setCurrentFolder(path);
@@ -216,7 +216,7 @@ export function useEditalDetails(editalId: string | undefined) {
         const parts = toSitePath(editalId).split('/');
         if (parts.length > 1) {
           const parent = parts.slice(0, -1).join('/');
-          navigate(toEditalHref(parent));
+          router.push(toEditalHref(parent));
           await fetchData(parent);
         }
       }
@@ -245,7 +245,7 @@ export function useEditalDetails(editalId: string | undefined) {
       const targetBreadcrumb = breadcrumbItems[targetIndex];
       const path = toSitePath(targetBreadcrumb.id);
 
-      navigate(toEditalHref(path));
+      router.push(toEditalHref(path));
       await fetchData(path, targetIndex > 0 ? targetBreadcrumb.id : null);
       setCurrentPath((prev) => prev.slice(0, prev.length - stepsBack));
       setBreadcrumbItems((prev) => prev.slice(0, targetIndex + 1));

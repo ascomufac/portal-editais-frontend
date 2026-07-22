@@ -6,18 +6,18 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
-import AdminActivity from "./pages/admin/AdminActivity";
-import AdminHome from "./pages/admin/AdminHome";
-import AdminShell from "./pages/admin/AdminShell";
-import ContentBrowser from "./pages/admin/ContentBrowser";
-import EditalDetail from "./pages/EditalDetail";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import PdfViewerPage from "./pages/PdfViewerPage";
-import ProReitoriaDetail from "./pages/ProReitoriaDetail";
-import ProReitorias from "./pages/ProReitorias";
-import SearchResults from "./pages/SearchResults";
-import SetorPage from "./pages/SetorPage";
+import AdminActivity from "./views/admin/AdminActivity";
+import AdminHome from "./views/admin/AdminHome";
+import AdminShell from "./views/admin/AdminShell";
+import ContentBrowser from "./views/admin/ContentBrowser";
+import EditalDetail from "./views/EditalDetail";
+import Index from "./views/Index";
+import NotFound from "./views/NotFound";
+import PdfViewerPage from "./views/PdfViewerPage";
+import ProReitoriaDetail from "./views/ProReitoriaDetail";
+import ProReitorias from "./views/ProReitorias";
+import SearchResults from "./views/SearchResults";
+import SetorPage from "./views/SetorPage";
 
 const queryClient = new QueryClient();
 

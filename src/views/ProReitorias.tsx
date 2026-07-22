@@ -1,3 +1,5 @@
+'use client';
+
 import EditalCard from '@/components/EditalCard';
 import CategoryHeader from '@/components/category/CategoryHeader';
 import {
@@ -13,7 +15,7 @@ import { motion } from 'framer-motion';
 import { Building, Loader2 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
-const iconMap: Record<string, JSX.Element> = {
+const iconMap: Record<string, React.JSX.Element> = {
   prograd: (
     <div className="w-8 h-8">
       <GraduacaoIcon />

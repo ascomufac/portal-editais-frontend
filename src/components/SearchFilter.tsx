@@ -89,7 +89,7 @@ const sections: SectionOption[] = [
 /**
  * Componente de filtro para busca por seção
  * @param {SearchFilterProps} props - Propriedades do componente
- * @returns {JSX.Element} Componente React renderizado
+ * @returns {React.JSX.Element} Componente React renderizado
  */
 const SearchFilter: React.FC<SearchFilterProps> = ({
   selectedSection,

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useMemo, useState } from 'react';
 import EditalCard from '@/components/EditalCard';
 import UpdatesSection, { Update } from '@/components/UpdatesSection';
@@ -57,14 +59,18 @@ const itemVariants = {
   },
 };
 
-const Index: React.FC = () => {
+const Index: React.FC<{
+  initialFeatured?: EditalItem[];
+  initialUpdates?: Update[];
+}> = ({ initialFeatured, initialUpdates }) => {
   const [sortOption, setSortOption] = useState<SortOption>('date-newest');
-  const [featured, setFeatured] = useState<EditalItem[]>([]);
-  const [updates, setUpdates] = useState<Update[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [featured, setFeatured] = useState<EditalItem[]>(initialFeatured || []);
+  const [updates, setUpdates] = useState<Update[]>(initialUpdates || []);
+  const [isLoading, setIsLoading] = useState(!initialFeatured);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (initialFeatured) return;
     let cancelled = false;
 
     const load = async () => {
@@ -101,7 +107,7 @@ const Index: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialFeatured]);
 
   const sortedEditals = useMemo(() => {
     return [...featured].sort((a, b) => {

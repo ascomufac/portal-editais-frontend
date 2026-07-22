@@ -303,8 +303,11 @@ export const extractTextContext = (
   return text.substring(start, end);
 };
 
+/** Versão do pdfjs-dist alinhada ao react-pdf (sem importar pdfjs no SSR). */
+export const PDFJS_VERSION = '5.4.296';
+
 export const getPdfOptions = () => ({
-  cMapUrl: `https://unpkg.com/pdfjs-dist@3.11.174/cmaps/`,
+  cMapUrl: `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/cmaps/`,
   cMapPacked: true,
-  standardFontDataUrl: `https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/`,
+  standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/standard_fonts/`,
 });

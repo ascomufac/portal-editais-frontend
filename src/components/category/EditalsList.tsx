@@ -46,7 +46,7 @@ const itemVariants = {
 /**
  * Componente para exibir uma lista de editais com opções de ordenação
  * @param {EditalsListProps} props - Propriedades do componente
- * @returns {JSX.Element} Componente React renderizado
+ * @returns {React.JSX.Element} Componente React renderizado
  * @description Renderiza uma grade responsiva de cards de editais com opções 
  *              de ordenação e animações de entrada para cada item.
  */

@@ -20,7 +20,7 @@ import {
 	FileText,
 } from 'lucide-react';
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import Link from 'next/link';
 
 const getClockIconByHour = (hour: string | undefined) => {
 	if (!hour)
@@ -86,8 +86,8 @@ const EditalCard: React.FC<EditalCardProps> = ({
 
 	if (variant === 'line') {
 		return (
-			<NavLink
-				to={href}
+			<Link
+				href={href}
 				aria-label={`Abrir ${displayTitle}`}
 				className='border-b py-4 overflow-hidden flex items-center justify-between gap-3 sm:gap-4 bg-white rounded-3xl p-3 sm:p-4 transition-colors hover:bg-slate-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ufac-blue focus-visible:ring-offset-2'
 			>
@@ -125,13 +125,13 @@ const EditalCard: React.FC<EditalCardProps> = ({
 				>
 					<ArrowRight className='h-4 w-4 text-gray-900' />
 				</span>
-			</NavLink>
+			</Link>
 		);
 	}
 
 	return (
-		<NavLink
-			to={href}
+		<Link
+			href={href}
 			aria-label={`Abrir ${displayTitle}`}
 			className='group block h-full rounded-[28px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ufac-blue focus-visible:ring-offset-2'
 		>
@@ -222,7 +222,7 @@ const EditalCard: React.FC<EditalCardProps> = ({
 					</div>
 				</div>
 			</motion.div>
-		</NavLink>
+		</Link>
 	);
 };
 

@@ -24,7 +24,7 @@ interface SearchFormProps {
 /**
  * Componente de formulário de busca para PDFs
  * @param {SearchFormProps} props - Propriedades do componente
- * @returns {JSX.Element} Componente React renderizado
+ * @returns {React.JSX.Element} Componente React renderizado
  */
 const SearchForm: React.FC<SearchFormProps> = ({
   searchText,
