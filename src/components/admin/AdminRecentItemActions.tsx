@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   adminContentHref,
+  ApiError,
+  downloadPloneFile,
   isFolderishContent,
   parentPlonePath,
   resolveContentType,
@@ -28,6 +30,7 @@ import {
   type PloneContentItem,
 } from '@/services/ploneContentService';
 import {
+  Download,
   Eye,
   FolderOpen,
   History,
@@ -47,11 +50,17 @@ const canViewContent = (item: PloneContentItem) => {
   return type === 'File' || type === 'Image' || type === 'Link' || type === 'Document';
 };
 
+const canDownloadContent = (item: PloneContentItem) => {
+  const type = resolveContentType(item);
+  return type === 'File' || type === 'Image';
+};
+
 type ActionHandlers = {
   onOpen: () => void;
   onOpenFolder: () => void;
   onAction: (action: AdminContentOpenAction) => void;
   onCopyLink: () => void;
+  onDownload: () => void;
 };
 
 const useActionHandlers = (item: PloneContentItem): ActionHandlers => {
@@ -114,9 +123,19 @@ const useActionHandlers = (item: PloneContentItem): ActionHandlers => {
     }
   }, [item]);
 
+  const onDownload = useCallback(async () => {
+    try {
+      await downloadPloneFile(item);
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : 'Falha ao baixar o arquivo.'
+      );
+    }
+  }, [item]);
+
   return useMemo(
-    () => ({ onOpen, onOpenFolder, onAction, onCopyLink }),
-    [onOpen, onOpenFolder, onAction, onCopyLink]
+    () => ({ onOpen, onOpenFolder, onAction, onCopyLink, onDownload }),
+    [onOpen, onOpenFolder, onAction, onCopyLink, onDownload]
   );
 };
 
@@ -126,9 +145,19 @@ const ActionItems: React.FC<
     Item: typeof DropdownMenuItem | typeof ContextMenuItem;
     Separator: typeof DropdownMenuSeparator | typeof ContextMenuSeparator;
   }
-> = ({ item, onOpen, onOpenFolder, onAction, onCopyLink, Item, Separator }) => {
+> = ({
+  item,
+  onOpen,
+  onOpenFolder,
+  onAction,
+  onCopyLink,
+  onDownload,
+  Item,
+  Separator,
+}) => {
   const folderish = isFolderishContent(item);
   const viewable = canViewContent(item);
+  const downloadable = canDownloadContent(item);
 
   return (
     <>
@@ -165,6 +194,12 @@ const ActionItems: React.FC<
         <Link2 className={adminDriveMenuIconClass} />
         Copiar link
       </Item>
+      {downloadable && (
+        <Item className={adminDriveMenuItemClass} onClick={() => void onDownload()}>
+          <Download className={adminDriveMenuIconClass} />
+          Fazer download
+        </Item>
+      )}
     </>
   );
 };
@@ -194,7 +229,7 @@ const AdminRecentItemActions: React.FC<Props> = ({
     <div className={className}>
       <ContextMenu>
         <ContextMenuTrigger asChild>
-          <div className="flex min-w-0 flex-1 items-center overflow-hidden">
+          <div className="flex min-w-0 flex-1 items-center overflow-visible">
             {children}
           </div>
         </ContextMenuTrigger>

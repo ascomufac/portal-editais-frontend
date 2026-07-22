@@ -73,7 +73,7 @@ const recentCardClass = (item: PloneContentItem) => {
   const privateItem = getReviewState(item) === 'private';
   const draft = isUnpublished(item) && !privateItem;
   return cn(
-    'group flex min-h-[3.75rem] w-full min-w-0 items-center gap-3 overflow-hidden rounded-2xl border border-transparent px-4 py-3 text-left transition',
+    'group flex min-h-[3.75rem] w-full min-w-0 items-center gap-3 overflow-visible rounded-2xl border border-transparent px-4 py-3 text-left transition',
     privateItem
       ? 'bg-slate-100/90 hover:bg-slate-100'
       : draft
@@ -277,7 +277,7 @@ const AdminHome: React.FC = () => {
                         openRecent(item);
                       }
                     }}
-                    className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden text-left"
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   >
                     <AdminDriveIcon item={item} />
                     <div className="min-w-0 flex-1 overflow-hidden">

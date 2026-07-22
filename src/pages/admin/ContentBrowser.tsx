@@ -57,6 +57,7 @@ import {
   adminContentHref,
   copyContent,
   deleteContent,
+  downloadPloneFile,
   getAddableTypes,
   getBreadcrumbs,
   getReviewState,
@@ -87,6 +88,7 @@ import {
   ChevronRight,
   ClipboardPaste,
   Copy,
+  Download,
   Eye,
   EyeOff,
   FileText,
@@ -115,6 +117,11 @@ const PAGE_SIZE = 60;
 const canViewContent = (item: PloneContentItem) => {
   const type = resolveContentType(item);
   return type === 'File' || type === 'Image' || type === 'Link' || type === 'Document';
+};
+
+const canDownloadContent = (item: PloneContentItem) => {
+  const type = resolveContentType(item);
+  return type === 'File' || type === 'Image';
 };
 
 const isUnpublished = (item: PloneContentItem) => {
@@ -908,6 +915,25 @@ const ContentBrowser: React.FC = () => {
         <Copy className={adminDriveMenuIconClass} />
         Fazer uma cópia
       </Item>
+      {canDownloadContent(item) && (
+        <Item
+          className={adminDriveMenuItemClass}
+          onClick={() => {
+            void (async () => {
+              try {
+                await downloadPloneFile(item);
+              } catch (err) {
+                toast.error(
+                  err instanceof ApiError ? err.message : 'Falha ao baixar o arquivo.'
+                );
+              }
+            })();
+          }}
+        >
+          <Download className={adminDriveMenuIconClass} />
+          Fazer download
+        </Item>
+      )}
       <Item
         className={adminDriveMenuItemClass}
         onClick={() => {
@@ -1463,7 +1489,7 @@ const ContentBrowser: React.FC = () => {
                           handleItemClick(item);
                         }
                       }}
-                      className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-left"
+                      className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
                     >
                       <div
                         className={cn(

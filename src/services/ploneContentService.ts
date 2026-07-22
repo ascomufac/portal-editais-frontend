@@ -1,8 +1,8 @@
 /**
  * Administração de conteúdo via Plone REST API (++api++).
  */
-import { apiRequest, ApiError } from '@/services/apiClient';
-import { getAccessToken } from '@/services/authService';
+import { apiRequest, apiFetch, ApiError } from '@/services/apiClient';
+import { ensureAuthCookies, getAccessToken } from '@/services/authService';
 import { BASE_URL, SITE_URL } from '@/services/ploneConfig';
 
 export { ApiError };
@@ -747,6 +747,57 @@ export const reorderFolderItem = async (
 
 export const renameContent = async (path: string, newId: string): Promise<PloneContentItem> => {
   return updateContent(path, { id: newId });
+};
+
+/**
+ * Baixa um File/Image autenticado e dispara o save no navegador.
+ */
+export const downloadPloneFile = async (
+  item: Pick<PloneContentItem, '@id' | 'title' | 'id' | 'file'>
+): Promise<void> => {
+  const path = toPlonePath(item['@id']);
+  if (!path) throw new ApiError('Caminho do arquivo inválido.', 400);
+
+  let res = await apiFetch(`/${path}/@download`, {
+    headers: { Accept: '*/*' },
+  });
+
+  if (!res.ok) {
+    ensureAuthCookies();
+    const token = getAccessToken();
+    const headers = new Headers({ Accept: '*/*' });
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    res = await fetch(`/__plone__/${path}/@@download/file`, {
+      credentials: 'same-origin',
+      headers,
+    });
+  }
+
+  if (!res.ok) {
+    throw new ApiError(`Falha ao baixar (${res.status})`, res.status);
+  }
+
+  const blob = await res.blob();
+  if (!blob.size) throw new ApiError('Arquivo vazio.', 422);
+
+  const fileMeta = item.file;
+  const filename =
+    (fileMeta && typeof fileMeta === 'object' && fileMeta.filename
+      ? String(fileMeta.filename)
+      : '') ||
+    getContentDisplayName(item as PloneContentItem) ||
+    item.id ||
+    'download';
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
 };
 
 const fileToBase64 = (
