@@ -24,7 +24,10 @@ import {
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import PdfIcon from '../icons/PdfIcon';
+import FileTypeIcon, {
+	FILE_KIND_STYLES,
+	getFileKind,
+} from '../icons/FileTypeIcon';
 import EditalBreadcrumb from './EditalBreadcrumb';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -290,7 +293,7 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 								value="file"
 								className='flex items-center gap-1.5 rounded-lg px-3 py-1.5 data-[state=active]:bg-ufac-lightBlue data-[state=active]:text-ufac-blue'
 							>
-								<PdfIcon className='h-3.5 w-3.5' />
+								<FileText className='h-3.5 w-3.5' />
 								<span>Arquivos</span>
 								<span
 									className={cn(
@@ -351,9 +354,28 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 													className='flex items-center p-4 cursor-pointer w-full text-left hover:bg-gray-50'
 													onClick={() => handleOpenItem(item)}
 												>
-													<div className='min-w-10 min-h-10 flex items-center justify-center bg-red-50 rounded-full mr-3'>
-														<PdfIcon className='h-5 w-5 text-red-500' />
-													</div>
+													{(() => {
+														const kind = getFileKind(
+															item.title,
+															item.url,
+															item['@id']
+														);
+														return (
+															<div
+																className={cn(
+																	'min-w-10 min-h-10 flex items-center justify-center rounded-full mr-3',
+																	FILE_KIND_STYLES[kind].bgSoft
+																)}
+															>
+																<FileTypeIcon
+																	kind={kind}
+																	withBackground={false}
+																	className='h-5 w-5'
+																	size={20}
+																/>
+															</div>
+														);
+													})()}
 													<div className='flex-grow min-w-0'>
 														<div className='font-medium text-slate-800 hover:text-ufac-blue line-clamp-2'>
 															{item.title}
@@ -472,6 +494,9 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 									const folder = isFolderItem(item);
 									const fileUrl = item.url || item['@id'] || '';
 									const canPreview = !folder && (isPdf(fileUrl) || isPdf(item['@id'] || ''));
+									const fileKind = folder
+										? null
+										: getFileKind(item.title, item.url, item['@id']);
 
 									return (
 									<TableRow
@@ -493,12 +518,19 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 												<span
 													className={cn(
 														'mr-3 flex justify-center items-center min-w-10 min-h-10 rounded-full',
-														folder ? 'bg-ufac-lightBlue' : 'bg-red-50'
+														folder
+															? 'bg-ufac-lightBlue'
+															: FILE_KIND_STYLES[fileKind!].bgSoft
 													)}>
 														{folder ? (
 															<Folder className='min-h-5 max-h-5 min-w-5 max-w-5' />
 														) : (
-															<PdfIcon className='min-h-5 max-h-5 min-w-5 max-w-5 text-red-500' />
+															<FileTypeIcon
+																kind={fileKind!}
+																withBackground={false}
+																className='min-h-5 max-h-5 min-w-5 max-w-5'
+																size={20}
+															/>
 														)}
 												</span>
 												<button

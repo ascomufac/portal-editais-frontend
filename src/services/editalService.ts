@@ -3,8 +3,15 @@
  * @module editalService
  */
 
-export const BASE_URL = 'https://www3.ufac.br/++api++';
+/** Site Plone (URLs absolutas / reescrita de links) */
 export const SITE_URL = 'https://www3.ufac.br';
+
+/**
+ * API via proxy same-origin (/__plone__ no Vite e no nginx).
+ * Evita falha de CORS: o Varnish devolve GET em cache SEM Access-Control-Allow-Origin,
+ * embora o OPTIONS preflight tenha CORS correto.
+ */
+export const BASE_URL = '/__plone__/++api++';
 
 /** Mapeamento de rotas amigáveis para IDs de setor no Plone */
 export const categoryToSetorMap: Record<string, string> = {
@@ -42,6 +49,65 @@ export type ProReitoriaId = (typeof PRO_REITORIA_IDS)[number];
 
 export const isProReitoriaId = (id: string): id is ProReitoriaId =>
   (PRO_REITORIA_IDS as readonly string[]).includes(id);
+
+/**
+ * Ordem preferencial do menu (depois de "Início", que é fixo na sidebar):
+ * pró-reitorias → CAP → Centro de Idiomas → DCE → demais (ordem da API).
+ */
+const MENU_PRIORITY_IDS = [
+  'prograd',
+  'propeg',
+  'proex',
+  'proaes',
+  'prodgep',
+  'proplan',
+  'colegio-de-aplicacao',
+  'centro-idiomas',
+  'dce',
+] as const;
+
+const normalizeMenuId = (id: string): string =>
+  id
+    .toLowerCase()
+    .replace(/^\/+|\/+$/g, '')
+    .split('/')
+    .pop() || id.toLowerCase();
+
+const resolveMenuPriority = (item: { id: string; title?: string }): number => {
+  const id = normalizeMenuId(item.id);
+  const title = (item.title || '').toLowerCase();
+
+  const exact = (MENU_PRIORITY_IDS as readonly string[]).indexOf(id);
+  if (exact >= 0) return exact;
+
+  if (id.includes('colegio') || id === 'cap' || title.includes('colégio de aplicação') || title.includes('colegio de aplicacao')) {
+    return (MENU_PRIORITY_IDS as readonly string[]).indexOf('colegio-de-aplicacao');
+  }
+  if (id.includes('idioma') || title.includes('centro de idiomas')) {
+    return (MENU_PRIORITY_IDS as readonly string[]).indexOf('centro-idiomas');
+  }
+  if (id === 'dce' || title === 'dce') {
+    return (MENU_PRIORITY_IDS as readonly string[]).indexOf('dce');
+  }
+
+  return -1;
+};
+
+/** Reordena itens do menu mantendo estável o que não está na lista de prioridade. */
+export const sortMenuItems = <T extends { id: string; title?: string }>(items: T[]): T[] => {
+  return items
+    .map((item, index) => {
+      const priority = resolveMenuPriority(item);
+      return {
+        item,
+        index,
+        rank: priority >= 0 ? priority : MENU_PRIORITY_IDS.length + index,
+      };
+    })
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map(({ item }) => item);
+};
+
 
 const apiRequest = async <T>(endpoint: string): Promise<T> => {
   const normalized = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
@@ -91,6 +157,8 @@ export interface MenuItem {
   '@id'?: string;
   '@type'?: string;
   remoteUrl?: string;
+  /** Subitens do @navigation Plone (accordion) */
+  children?: MenuItem[];
 }
 
 /**
@@ -288,48 +356,133 @@ const buildSearchParams = (params: SearchParams = {}): URLSearchParams => {
 // Cache interno no módulo
 let cachedMenuItems: MenuItem[] | null = null;
 
+type PloneNavNode = {
+  '@id': string;
+  title: string;
+  description?: string;
+  items?: PloneNavNode[];
+  remoteUrl?: string;
+  '@type'?: string;
+};
+
 /**
- * Busca os itens de menu da API de editais com cache interno
+ * Href interno a partir de um path Plone.
+ * Raiz de setor → /setor/:id | caminho aninhado → /edital/...
+ */
+const hrefFromSitePath = (sitePath: string, isLink = false, remoteUrl?: string): string => {
+  if (isLink) {
+    const remote = remoteUrl || '';
+    if (remote.includes('www3.ufac.br')) return toEditalHref(remote);
+    if (remote.startsWith('http')) return remote;
+    return toEditalHref(sitePath);
+  }
+
+  const segments = sitePath.split('/').filter(Boolean);
+  if (segments.length <= 1) return toSetorHref(segments[0] || sitePath);
+  return toEditalHref(sitePath);
+};
+
+/**
+ * Converte nó do @navigation (ou item da raiz) em MenuItem
+ */
+const mapNavNodeToMenuItem = (node: PloneNavNode, forceLink = false): MenuItem => {
+  const sitePath = toSitePath(node['@id']);
+  const id = sitePath.split('/').filter(Boolean).pop() || sitePath || 'home';
+  const isLink = forceLink || node['@type'] === 'Link';
+
+  const children = (node.items || [])
+    .filter((child) => {
+      const childPath = toSitePath(child['@id']);
+      return childPath && childPath !== '/' && child.title !== 'Home';
+    })
+    .map((child) => mapNavNodeToMenuItem(child));
+
+  return {
+    id,
+    title: node.title,
+    url: sitePath,
+    href: hrefFromSitePath(sitePath, isLink, node.remoteUrl),
+    description: node.description,
+    '@id': node['@id'],
+    '@type': node['@type'],
+    remoteUrl: node.remoteUrl,
+    children: children.length > 0 ? children : undefined,
+  };
+};
+
+/**
+ * Converte item da API Plone (raiz) em item de menu do portal
+ */
+const mapApiItemToMenuItem = (
+  item: EditalItem & { '@id': string; remoteUrl?: string }
+): MenuItem => {
+  const sitePath = toSitePath(item['@id']);
+  const id = sitePath.split('/').filter(Boolean).pop() || '';
+  const isLink = item['@type'] === 'Link';
+
+  return {
+    id,
+    title: item.title,
+    url: sitePath,
+    href: hrefFromSitePath(sitePath, isLink, item.remoteUrl),
+    description: item.description,
+    '@id': item['@id'],
+    '@type': item['@type'],
+    remoteUrl: item.remoteUrl,
+  };
+};
+
+/**
+ * Menu do portal via @navigation do Plone (com submenus) + Links extras da raiz.
  */
 export const fetchMenuItems = async (): Promise<MenuItem[]> => {
   if (cachedMenuItems) {
-    return cachedMenuItems;
+    return sortMenuItems(cachedMenuItems);
   }
 
   try {
-    const data = await apiRequest<{
-      items: Array<EditalItem & { '@id': string; remoteUrl?: string }>;
-    }>('');
+    // Navegação oficial do Plone (mesma base do portal www3)
+    const nav = await apiRequest<{ items?: PloneNavNode[] }>(
+      '@navigation?expand.navigation.depth=2'
+    );
 
-    if (data.items && Array.isArray(data.items)) {
-      cachedMenuItems = data.items.map((item) => {
-        const id = item['@id'].split('/').pop() || '';
-        const sitePath = toSitePath(item['@id']);
-        // Links do Plone: abrir pelo próprio path (remoteUrl é resolvido na página)
-        const href =
-          item['@type'] === 'Link'
-            ? toEditalHref(sitePath)
-            : toSetorHref(sitePath);
+    const fromNav = (nav.items || [])
+      .filter((node) => {
+        const path = toSitePath(node['@id']);
+        return path !== '' && path !== '/' && node.title !== 'Home';
+      })
+      .map((node) => mapNavNodeToMenuItem(node));
 
-        return {
-          id,
-          title: item.title,
-          url: sitePath,
-          href,
-          description: item.description,
-          '@id': item['@id'],
-          '@type': item['@type'],
-          remoteUrl: item.remoteUrl,
-        };
-      });
-
-      return cachedMenuItems;
+    // Complementa com itens da raiz que não entram no @navigation (ex.: Links)
+    let extras: MenuItem[] = [];
+    try {
+      const root = await apiRequest<{
+        items: Array<EditalItem & { '@id': string; remoteUrl?: string }>;
+      }>('');
+      const navIds = new Set(fromNav.map((i) => i.id));
+      extras = (root.items || [])
+        .map(mapApiItemToMenuItem)
+        .filter((item) => item.id && !navIds.has(item.id));
+    } catch (err) {
+      console.warn('Não foi possível complementar menu com itens da raiz:', err);
     }
 
-    return [];
+    // Mantém ordem do portal: pró-reitorias → CAP → idiomas → DCE → demais
+    cachedMenuItems = sortMenuItems([...extras, ...fromNav]);
+    return cachedMenuItems;
   } catch (error) {
-    console.error('Erro ao buscar itens do menu:', error);
-    throw error;
+    console.error('Erro ao buscar menu via @navigation, tentando raiz:', error);
+    try {
+      const data = await apiRequest<{
+        items: Array<EditalItem & { '@id': string; remoteUrl?: string }>;
+      }>('');
+      cachedMenuItems = sortMenuItems((data.items || []).map(mapApiItemToMenuItem));
+      return cachedMenuItems;
+    } catch (fallbackError) {
+      console.error('Erro ao buscar itens do menu:', fallbackError);
+      cachedMenuItems = null;
+      throw fallbackError;
+    }
   }
 };
 

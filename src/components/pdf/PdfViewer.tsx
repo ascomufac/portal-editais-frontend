@@ -57,11 +57,13 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ fileUrl, fileName }) => {
 
   if (loading || error || !source) {
     return (
-      <PdfLoadingError
-        loading={loading}
-        error={error}
-        fileUrl={source?.downloadUrl || fileUrl}
-      />
+      <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
+        <PdfLoadingError
+          loading={loading}
+          error={error}
+          fileUrl={source?.downloadUrl || fileUrl}
+        />
+      </div>
     );
   }
 

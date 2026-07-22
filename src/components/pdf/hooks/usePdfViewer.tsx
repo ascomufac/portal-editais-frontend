@@ -53,7 +53,7 @@ export function usePdfViewer(fileUrl: string, downloadUrl?: string) {
     isSearchMode: false,
     searchTerm: '',
     showSearchResults: false,
-    showThumbnails: true,
+    showThumbnails: typeof window !== 'undefined' ? window.innerWidth >= 768 : true,
     fileUrl,
     downloadUrl: downloadUrl || fileUrl,
   });
@@ -81,43 +81,34 @@ export function usePdfViewer(fileUrl: string, downloadUrl?: string) {
   };
 
   /**
-   * Rola para uma página específica
-   * @param {number} pageNum - Número da página para rolar
-   * @param {number} [yPosition] - Posição Y opcional dentro da página
+   * Rola o container do PDF até o topo da página (ou posição Y interna).
+   * Usa scrollTop do container — scrollIntoView falha no mobile com overflow aninhado.
    */
   const scrollToPage = (pageNum: number, yPosition?: number) => {
-    if (pdfContainerRef.current) {
-      const pageElements = pdfContainerRef.current.querySelectorAll('.react-pdf__Page');
-      if (pageElements && pageElements.length >= pageNum) {
-        const targetPage = pageElements[pageNum - 1];
-        
-        // Se temos uma posição Y específica, rola para ela após a página estar em vista
-        if (yPosition !== undefined) {
-          // Primeiro rola para a página
-          targetPage?.scrollIntoView({ behavior: 'auto', block: 'start' });
-          
-          // Depois rola para a posição específica dentro da página
-          setTimeout(() => {
-            if (pdfContainerRef.current) {
-              const pageRect = targetPage.getBoundingClientRect();
-              const containerRect = pdfContainerRef.current.getBoundingClientRect();
-              const offsetTop = pageRect.top - containerRect.top + pdfContainerRef.current.scrollTop;
-              
-              // Calcula posição final de rolagem: posição superior da página + posição relativa da correspondência
-              const scrollToY = offsetTop + yPosition - 100; // -100px de deslocamento para mostrar algum contexto acima
-              
-              pdfContainerRef.current.scrollTo({
-                top: scrollToY,
-                behavior: 'smooth'
-              });
-            }
-          }, 100);
-        } else {
-          // Se não houver posição específica, apenas rola para a página
-          targetPage?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
+    const container = pdfContainerRef.current;
+    if (!container) return;
+
+    const pageElements = container.querySelectorAll('.react-pdf__Page');
+    if (!pageElements.length || pageNum < 1 || pageNum > pageElements.length) return;
+
+    const targetPage = pageElements[pageNum - 1] as HTMLElement;
+    const pageRect = targetPage.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const pageTop =
+      pageRect.top - containerRect.top + container.scrollTop;
+
+    if (yPosition !== undefined) {
+      container.scrollTo({
+        top: Math.max(0, pageTop + yPosition - 100),
+        behavior: 'smooth',
+      });
+      return;
     }
+
+    container.scrollTo({
+      top: Math.max(0, pageTop),
+      behavior: 'smooth',
+    });
   };
 
   /**

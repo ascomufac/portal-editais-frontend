@@ -29,9 +29,13 @@ const PdfPage: React.FC<PdfPageProps> = ({
   const pageRef = useRef<HTMLDivElement>(null);
   
   // Calculate dimensions based on fit type
-  const width = fitType === 'width' || fitType === 'page' 
-    ? (containerWidth ? containerWidth - 40 : undefined) 
-    : undefined;
+  // 'zoom' = só scale (pinch / botões), sem travar na largura do container
+  const width =
+    fitType === 'width' || fitType === 'page'
+      ? containerWidth
+        ? containerWidth - 40
+        : undefined
+      : undefined;
   
   const height = fitType === 'page' 
     ? (containerHeight ? containerHeight - 40 : undefined) 

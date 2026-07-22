@@ -48,6 +48,7 @@ export type SearchSection =
 interface SearchFilterProps {
   selectedSection: SearchSection;
   onSectionChange: (section: SearchSection) => void;
+  compact?: boolean;
 }
 
 /**
@@ -90,7 +91,11 @@ const sections: SectionOption[] = [
  * @param {SearchFilterProps} props - Propriedades do componente
  * @returns {JSX.Element} Componente React renderizado
  */
-const SearchFilter: React.FC<SearchFilterProps> = ({ selectedSection, onSectionChange }) => {
+const SearchFilter: React.FC<SearchFilterProps> = ({
+  selectedSection,
+  onSectionChange,
+  compact = false,
+}) => {
   const [open, setOpen] = useState(false);
   const selectedOption = sections.find((section) => section.value === selectedSection);
 
@@ -105,19 +110,33 @@ const SearchFilter: React.FC<SearchFilterProps> = ({ selectedSection, onSectionC
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 gap-1 text-xs font-medium text-gray-600 hover:text-ufac-blue hover:bg-transparent focus:ring-0"
+          className={cn(
+            'gap-0.5 text-xs font-medium text-gray-600 hover:text-ufac-blue hover:bg-transparent focus:ring-0',
+            compact ? 'h-8 px-1' : 'h-8 gap-1'
+          )}
+          aria-label="Filtrar seção da busca"
         >
           {selectedOption?.icon ? (
-            <div className="w-9 h-9 p-2 flex items-center justify-center bg-ufac-lightBlue rounded-full [&_svg]:w-full [&_svg]:h-full [&_svg]:shrink-0">
+            <div
+              className={cn(
+                'flex items-center justify-center rounded-full bg-ufac-lightBlue [&_svg]:h-full [&_svg]:w-full [&_svg]:shrink-0',
+                compact ? 'h-7 w-7 p-1.5' : 'h-9 w-9 p-2'
+              )}
+            >
               {selectedOption.icon}
             </div>
           ) : (
             selectedOption?.label || 'Todos'
           )}
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className={cn(compact ? 'h-3.5 w-3.5' : 'h-4 w-4')} />
         </Button>
       </PopoverTrigger>
-      <PopoverContent side="top" align="end" className="p-2 rounded-3xl shadow-lg max-h-[60vh] overflow-y-auto">
+      <PopoverContent
+        side={compact ? 'bottom' : 'top'}
+        align="end"
+        collisionPadding={12}
+        className="p-2 rounded-3xl shadow-lg max-h-[60vh] overflow-y-auto w-[min(100vw-1.5rem,20rem)]"
+      >
         <div className="space-y-1">
           {sections.map((section) => (
             <Button
@@ -125,19 +144,19 @@ const SearchFilter: React.FC<SearchFilterProps> = ({ selectedSection, onSectionC
               variant="ghost"
               size="sm"
               className={cn(
-                "w-full justify-start text-left font-normal rounded-2xl py-6",
+                'w-full justify-start gap-2.5 rounded-2xl py-2.5 text-left font-normal',
                 selectedSection === section.value
-                  ? "bg-ufac-lightBlue text-ufac-blue"
-                  : "text-gray-700"
+                  ? 'bg-ufac-lightBlue text-ufac-blue'
+                  : 'text-gray-700'
               )}
               onClick={() => handleChange(section.value)}
             >
               {section.icon && (
-                <span className="!w-8 !h-8 min-w-8 max-w-8 p-2 flex items-center justify-center bg-ufac-lightBlue rounded-full [&_svg]:w-full [&_svg]:h-full [&_svg]:shrink-0">
+                <span className="flex h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ufac-lightBlue p-1.5 [&>svg]:h-full [&>svg]:w-full [&>svg]:shrink-0">
                   {section.icon}
                 </span>
               )}
-              {section.label}
+              <span className="truncate">{section.label}</span>
               {selectedSection === section.value && (
                 <Check className="ml-auto h-4 w-4 text-ufac-blue" />
               )}

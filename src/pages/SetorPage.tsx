@@ -4,7 +4,6 @@ import DateRangeFilter, {
 	DateRangeFilterValue,
 } from '@/components/filters/DateRangeFilter';
 import PdfIcon from '@/components/icons/PdfIcon';
-import SearchBar from '@/components/SearchBar';
 import {
 	Select,
 	SelectContent,
@@ -12,7 +11,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MainLayout from '@/layouts/MainLayout';
 import {
@@ -285,14 +283,8 @@ const SetorPage: React.FC = () => {
 				animate='visible'
 				variants={containerVariants}
 				className='max-w-6xl mx-auto w-full'>
-				<motion.div
-					variants={itemVariants}
-					className='mb-6'>
-					<SearchBar />
-				</motion.div>
-
 				<motion.div variants={itemVariants}>
-					<CategoryHeader title={tituloSetor} />
+					<CategoryHeader title={tituloSetor} itemId={setor} />
 
 					<div className='mb-4 w-full'>
 						{/* Filtros e ordenacão */}
@@ -302,177 +294,130 @@ const SetorPage: React.FC = () => {
 							Editais disponíveis
 						</h3> */}
 
-						<div className='flex flex-wrap items-end my-8'>
-							<div className=''>
-								<label className='block text-sm font-medium text-gray-500 mb-1'>
-									Filtrar por tipo de item
-								</label>
-								<Tabs
-									defaultValue={filterType}
-									onValueChange={(val) => {
-										if (val) setFilterType(val as 'Folder' | 'File' | 'All');
-									}}>
-									<TabsList
-										className='bg-white rounded-xl '
-										role='tablist'
-										aria-label='Filtrar por tipo de item'>
-										{FILTER_OPTIONS.map(({ value, label, icon: Icon }) => (
-											<TabsTrigger
-												className='data-[state=active]:bg-ufac-lightBlue data-[state=active]:text-ufac-blue rounded-lg'
-												key={value}
-												value={value}
-												role='tab'
-												aria-selected={filterType === value}
-												aria-label={`Filtrar por ${label}`}
-												tabIndex={0}
-												onKeyDown={(e) => {
-													if (e.key === ' ') {
-														e.preventDefault();
-														setFilterType(value as 'Folder' | 'File' | 'All');
-													}
-												}}
-												onClick={(e) => {
-													e.preventDefault();
-													setFilterType(value as 'Folder' | 'File' | 'All');
-												}}>
-												<Icon
-													className='h-4 w-4 mr-2'
-													aria-hidden='true'
-												/>
-												{label}
-											</TabsTrigger>
-										))}
-									</TabsList>
-								</Tabs>
-							</div>
-							<Separator
-								className='h-full'
-								orientation={'vertical'}
-							/>
-							<div className='h-full m-0'>
-								<label className='block font-medium text-gray-500 mb-1 text-xs'>
-									Ordenar por
-								</label>
-								<div className='bg-white gap-1 flex items-end rounded-xl'>
-									<Select
-										value={sortOrder}
-										onValueChange={(val) => {
-											if (val)
-												setSortOrder(
-													val as
-														| 'created'
-														| 'modified'
-														| 'sortable_title'
-														| 'effective'
-												);
-										}}>
-										<SelectTrigger className='w-[180px] h-10 border-none rounded-none rounded-tl-xl rounded-bl-xl rounded-tr-0 rounded-br-0'>
-											<SelectValue
-												className='text-ufac-blue'
-												placeholder='Ordenar por'
-											/>
-										</SelectTrigger>
-										<SelectContent className='bg-white border-none rounded-xl text-ufac-blue'>
-											{SORT_OPTIONS.map((option) => (
-												<SelectItem
-													key={option.value}
-													value={option.value}
-													className={
-														'relative flex w-full  cursor-default select-none items-center rounded-lg py-1.5 pl-8 pr-2 text-sm outline-none data-[highlighted]:bg-ufac-lightBlue data-[highlighted]:text-ufac-blue data-[disabled]:pointer-events-none data-[disabled]:opacity-50 h-10'
-													}>
-													<span className='flex items-center gap-2'>
-														<option.icon className='h-4 w-4 text-ufac-blue' />
-														{option.label}
-													</span>
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
+						<div className='mb-4 mt-3 flex flex-col gap-2 rounded-xl bg-white p-2 shadow-sm sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2 sm:overflow-x-auto sm:no-scrollbar'>
+							<div className='flex min-w-0 items-center gap-2 overflow-x-auto no-scrollbar'>
+							<Tabs
+								value={filterType}
+								onValueChange={(val) => {
+									if (val) {
+										setFilterType(val as 'Folder' | 'File' | 'All');
+										goToFirstPage();
+									}
+								}}>
+								<TabsList
+									className='h-9 shrink-0 rounded-lg bg-ufac-lightBlue/40 p-0.5'
+									role='tablist'
+									aria-label='Filtrar por tipo de item'>
+									{FILTER_OPTIONS.map(({ value, label, icon: Icon }) => (
+										<TabsTrigger
+											className='h-8 gap-1.5 rounded-md px-2.5 text-sm data-[state=active]:bg-white data-[state=active]:text-ufac-blue data-[state=active]:shadow-sm'
+											key={value}
+											value={value}
+											role='tab'
+											aria-selected={filterType === value}
+											aria-label={`Filtrar por ${label}`}>
+											<Icon className='h-4 w-4' aria-hidden='true' />
+											<span className='hidden sm:inline'>{label}</span>
+										</TabsTrigger>
+									))}
+								</TabsList>
+							</Tabs>
 
-									<button
-										onClick={() =>
-											setSortDirection((prev) =>
-												prev === 'ascending' ? 'descending' : 'ascending'
-											)
-										}
-										aria-label={`Ordenar em ordem ${
-											sortDirection === 'ascending'
-												? 'decrescente'
-												: 'crescente'
-										}`}
-										className='rounded-tl-0 rounded-bl-0 rounded-tr-xl rounded-br-xl
-									
-								px-3 focus:ring-ufac-blue-light  py-2 border-none bg-white text-ufac-blue hover:bg-ufac-lightBlue hover:text-ufac-blue text-[14px] h-10 font-medium flex items-center gap-2 focus-visible:ring-ufac-blue focus-visible:ring-2 focus-visible:ring-ring focus:outline-none focus:ring-offset-1 max-h-10'>
-										{sortDirection === 'ascending' ? (
-											sortOrder === 'sortable_title' ? (
-												<>
-													<ArrowDownAZ className='h-4 w-4' />
-													Crescente
-												</>
-											) : (
-												<>
-													<CalendarArrowDown className='h-4 w-4' />
-													Mais antigo
-												</>
-											)
-										) : sortOrder === 'sortable_title' ? (
+							<div className='flex h-9 shrink-0 items-center rounded-lg bg-ufac-lightBlue/40 p-0.5'>
+								<Select
+									value={sortOrder}
+									onValueChange={(val) => {
+										if (val)
+											setSortOrder(
+												val as
+													| 'created'
+													| 'modified'
+													| 'sortable_title'
+													| 'effective'
+											);
+									}}>
+									<SelectTrigger className='h-8 w-[120px] sm:w-[138px] border-none bg-transparent px-2.5 text-sm shadow-none focus:ring-0'>
+										<SelectValue placeholder='Ordenar' />
+									</SelectTrigger>
+									<SelectContent className='rounded-xl border-none bg-white text-ufac-blue'>
+										{SORT_OPTIONS.map((option) => (
+											<SelectItem
+												key={option.value}
+												value={option.value}
+												className='h-9 rounded-lg text-sm data-[highlighted]:bg-ufac-lightBlue data-[highlighted]:text-ufac-blue'>
+												<span className='flex items-center gap-2'>
+													<option.icon className='h-4 w-4 text-ufac-blue' />
+													{option.label}
+												</span>
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+
+								<button
+									type='button'
+									onClick={() =>
+										setSortDirection((prev) =>
+											prev === 'ascending' ? 'descending' : 'ascending'
+										)
+									}
+									aria-label={`Ordenar em ordem ${
+										sortDirection === 'ascending' ? 'decrescente' : 'crescente'
+									}`}
+									className='flex h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-ufac-blue hover:bg-white focus:outline-none focus-visible:ring-1 focus-visible:ring-ufac-blue'>
+									{sortDirection === 'ascending' ? (
+										sortOrder === 'sortable_title' ? (
 											<>
-												<ArrowUpAZ className='h-4 w-4' />
-												Decrescente
+												<ArrowDownAZ className='h-4 w-4' />
+												<span className='hidden sm:inline'>Cresc.</span>
 											</>
 										) : (
 											<>
-												<CalendarArrowUp className='h-4 w-4' />
-												Mais recente
+												<CalendarArrowDown className='h-4 w-4' />
+												<span className='hidden sm:inline'>Antigo</span>
 											</>
-										)}
-									</button>
-								</div>
-							</div>
-
-							<Separator
-								className='h-full'
-								orientation={'vertical'}
-							/>
-
-							<div className='h-full flex flex-col '>
-								<label className='block text-sm font-medium text-gray-500 mb-1 text-xs'>
-									Visualização
-								</label>
-								<button
-									onClick={() =>
-										setCardLayout((prev) => (prev === 'card' ? 'line' : 'card'))
-									}
-									aria-label={`Trocar para visualização em ${
-										cardLayout === 'card' ? 'lista' : 'cartões'
-									}`}
-									className='px-3 w-50 focus:ring-ufac-blue-light  py-2 border-none h-10 bg-white text-ufac-blue hover:bg-ufac-lightBlue hover:text-ufac-blue text-[14px] font-medium flex items-center gap-2 focus-visible:ring-ufac-blue focus-visible:ring-2 rounded-xl focus-visible:ring-ring focus:outline-none focus:ring-offset-1'>
-									{cardLayout === 'card' ? (
+										)
+									) : sortOrder === 'sortable_title' ? (
 										<>
-											<AlignJustify
-												size={24}
-												className='h-4 w-4'
-											/>{' '}
-											Lista
+											<ArrowUpAZ className='h-4 w-4' />
+											<span className='hidden sm:inline'>Decresc.</span>
 										</>
 									) : (
 										<>
-											<LayoutGrid
-												size={24}
-												className='h-4 w-4'
-											/>{' '}
-											Cards
+											<CalendarArrowUp className='h-4 w-4' />
+											<span className='hidden sm:inline'>Recente</span>
 										</>
 									)}
 								</button>
 							</div>
-						</div>
+							</div>
 
-						<div className='mb-6'>
-							<DateRangeFilter
-								value={dateFilter}
-								onChange={handleDateFilterChange}
-							/>
+							<div className='flex min-w-0 items-center gap-2 overflow-x-auto no-scrollbar sm:ml-auto'>
+								<DateRangeFilter
+									value={dateFilter}
+									onChange={handleDateFilterChange}
+									showLabel={false}
+									embedded
+									compact
+								/>
+
+							<button
+								type='button'
+								onClick={() =>
+									setCardLayout((prev) => (prev === 'card' ? 'line' : 'card'))
+								}
+								aria-label={`Trocar para visualização em ${
+									cardLayout === 'card' ? 'lista' : 'cartões'
+								}`}
+								title={cardLayout === 'card' ? 'Lista' : 'Cards'}
+								className='ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ufac-lightBlue/40 text-ufac-blue hover:bg-ufac-lightBlue focus:outline-none focus-visible:ring-1 focus-visible:ring-ufac-blue sm:ml-0'>
+								{cardLayout === 'card' ? (
+									<AlignJustify className='h-4 w-4' />
+								) : (
+									<LayoutGrid className='h-4 w-4' />
+								)}
+							</button>
+							</div>
 						</div>
 
 						<div
@@ -547,8 +492,8 @@ const SetorPage: React.FC = () => {
 					{categoryData && categoryData.items && totalItems > 0 && (
 						<nav
 							aria-label='Paginação dos resultados'
-							className='flex flex-wrap justify-center mt-6 gap-4 items-center'>
-							<div className='flex items-center gap-2'>
+							className='mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-4'>
+							<div className='hidden items-center gap-2 sm:flex'>
 								<label
 									htmlFor='itemsPerPage'
 									className='text-sm text-gray-600'>
@@ -575,23 +520,37 @@ const SetorPage: React.FC = () => {
 								</Select>
 							</div>
 
-							<button
-								aria-label='Página anterior'
-								onClick={() => {
-									const currentPage = getPageFromURL();
-									const newPage = Math.max(1, currentPage - 1);
-									navigate(`/setor/${setor}/${newPage}`);
-								}}
-								disabled={start === 0}
-								className='px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed'>
-								Anterior
-							</button>
+							<div className='grid grid-cols-[1fr_auto_1fr] items-center gap-2'>
+								<button
+									aria-label='Página anterior'
+									onClick={() => {
+										const currentPage = getPageFromURL();
+										const newPage = Math.max(1, currentPage - 1);
+										navigate(`/setor/${setor}/${newPage}`);
+									}}
+									disabled={start === 0}
+									className='h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 sm:h-auto sm:px-4 sm:py-2'>
+									Anterior
+								</button>
 
-							<span className='px-2 py-2 text-sm text-gray-700 self-center'>
-								Página {getPageFromURL()} de {Math.ceil(totalItems / limit)}
-							</span>
+								<span className='px-2 text-center text-sm text-gray-700'>
+									{getPageFromURL()} / {Math.ceil(totalItems / limit)}
+								</span>
 
-							<div className='flex items-center gap-2'>
+								<button
+									aria-label='Próxima página'
+									onClick={() => {
+										const currentPage = getPageFromURL();
+										const newPage = currentPage + 1;
+										navigate(`/setor/${setor}/${newPage}`);
+									}}
+									disabled={start + limit >= totalItems}
+									className='h-11 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 sm:h-auto sm:px-4 sm:py-2'>
+									Próxima
+								</button>
+							</div>
+
+							<div className='hidden items-center gap-2 sm:flex'>
 								<label
 									htmlFor='gotoPage'
 									className='text-sm text-gray-600'>
@@ -601,7 +560,7 @@ const SetorPage: React.FC = () => {
 									type='number'
 									min={1}
 									max={Math.ceil(totalItems / limit)}
-									className='border border-gray-300 rounded-lg px-3 py-2 text-sm w-[80px]'
+									className='w-[80px] rounded-lg border border-gray-300 px-3 py-2 text-sm'
 									onKeyDown={(e) => {
 										if (e.key === 'Enter') {
 											const val = Number((e.target as HTMLInputElement).value);
@@ -617,18 +576,6 @@ const SetorPage: React.FC = () => {
 									placeholder='Nº'
 								/>
 							</div>
-
-							<button
-								aria-label='Próxima página'
-								onClick={() => {
-									const currentPage = getPageFromURL();
-									const newPage = currentPage + 1;
-									navigate(`/setor/${setor}/${newPage}`);
-								}}
-								disabled={start + limit >= totalItems}
-								className='px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed'>
-								Próxima
-							</button>
 						</nav>
 					)}
 				</motion.div>

@@ -1,5 +1,4 @@
 import EditalCard from '@/components/EditalCard';
-import SearchBar from '@/components/SearchBar';
 import {
   AssuntosEstudantisIcon,
   ExtensaoIcon,
@@ -109,10 +108,6 @@ const ProReitoriaDetail: React.FC = () => {
         variants={containerVariants}
         className="max-w-6xl mx-auto"
       >
-        <motion.div variants={itemVariants} className="mb-6">
-          <SearchBar />
-        </motion.div>
-
         <motion.div variants={itemVariants}>
           <div className="flex items-center py-4">
             <div className="mr-4 p-3 bg-ufac-lightBlue rounded-full min-h-[56px] min-w-[56px] max-h-[56px] max-w-[56px] flex items-center justify-center">
