@@ -27,6 +27,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AdminFilePreviewPanel from '@/components/admin/AdminFilePreviewPanel';
+import AdminDriveIcon from '@/components/admin/AdminDriveIcon';
 import ContentEditorDialog from '@/components/admin/ContentEditorDialog';
 import HistoryDialog from '@/components/admin/HistoryDialog';
 import SelectionToolbar, { type SortKey } from '@/components/admin/SelectionToolbar';
@@ -149,105 +150,6 @@ const findRetractTransition = (transitions?: PloneWorkflowTransition[]) =>
       title.includes('retract')
     );
   });
-
-const DriveIcon: React.FC<{
-  type: string;
-  compact?: boolean;
-  /** Pasta privada: cinza; publicada: azul estilo Finder */
-  privateFolder?: boolean;
-  /** Preferir pasta quando is_folderish (tipo ausente/custom). */
-  folderish?: boolean;
-}> = ({ type, compact = false, privateFolder = false, folderish = false }) => {
-  const box = compact
-    ? 'flex h-8 w-8 shrink-0 items-center justify-center'
-    : 'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg';
-  const icon = compact ? 'h-5 w-5' : 'h-5 w-5';
-
-  if (
-    folderish ||
-    type === 'Folder' ||
-    type === 'Plone Site' ||
-    type === 'Collection'
-  ) {
-    if (privateFolder) {
-      return (
-        <span className={cn(box, 'relative', !compact && 'bg-slate-100 text-slate-500')}>
-          <Folder className={cn(icon, 'fill-slate-400/90 text-slate-500')} />
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-600">
-            <Lock className="h-2 w-2 fill-none text-white" strokeWidth={2.5} aria-hidden />
-          </span>
-        </span>
-      );
-    }
-    return (
-      <span className={cn(box, !compact && 'bg-sky-50 text-sky-500')}>
-        <Folder
-          className={cn(icon, 'fill-sky-400 text-sky-500')}
-          strokeWidth={1.5}
-        />
-      </span>
-    );
-  }
-  if (type === 'Link') {
-    return (
-      <span
-        className={cn(
-          box,
-          'relative',
-          !compact && (privateFolder ? 'bg-slate-100' : 'bg-sky-50 text-sky-600')
-        )}
-      >
-        <Link2
-          className={cn(icon, privateFolder ? 'text-slate-500' : 'text-sky-600')}
-        />
-        {privateFolder && (
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-600">
-            <Lock className="h-2 w-2 fill-none text-white" strokeWidth={2.5} aria-hidden />
-          </span>
-        )}
-      </span>
-    );
-  }
-  if (type === 'File' || type === 'Image') {
-    return (
-      <span
-        className={cn(
-          box,
-          'relative',
-          !compact && (privateFolder ? 'bg-slate-100' : 'bg-red-50 text-red-500')
-        )}
-      >
-        <FileText
-          className={cn(icon, privateFolder ? 'text-slate-500' : 'text-red-500')}
-        />
-        {privateFolder && (
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-600">
-            <Lock className="h-2 w-2 fill-none text-white" strokeWidth={2.5} aria-hidden />
-          </span>
-        )}
-      </span>
-    );
-  }
-  return (
-    <span
-      className={cn(
-        box,
-        'relative',
-        !compact &&
-          (privateFolder ? 'bg-slate-100' : 'bg-ufac-lightBlue text-ufac-blue')
-      )}
-    >
-      <FileText
-        className={cn(icon, privateFolder ? 'text-slate-500' : 'text-ufac-blue')}
-      />
-      {privateFolder && (
-        <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-600">
-          <Lock className="h-2 w-2 fill-none text-white" strokeWidth={2.5} aria-hidden />
-        </span>
-      )}
-    </span>
-  );
-};
 
 const ContentBrowser: React.FC = () => {
   const params = useParams();
@@ -1581,12 +1483,7 @@ const ContentBrowser: React.FC = () => {
                         />
                       </div>
                       <span className="flex h-8 shrink-0 items-center self-center">
-                        <DriveIcon
-                          type={item['@type']}
-                          compact
-                          folderish={isFolderishContent(item)}
-                          privateFolder={getReviewState(item) === 'private'}
-                        />
+                        <AdminDriveIcon item={item} compact />
                       </span>
                       <div className="flex min-h-8 min-w-0 flex-1 items-center gap-1.5 self-center">
                         <p className="truncate text-left text-sm font-medium leading-none text-slate-900">
@@ -1713,11 +1610,7 @@ const ContentBrowser: React.FC = () => {
                         />
                       </div>
                       <div className="flex min-w-0 items-center gap-3">
-                        <DriveIcon
-                          type={item['@type']}
-                          folderish={isFolderishContent(item)}
-                          privateFolder={getReviewState(item) === 'private'}
-                        />
+                        <AdminDriveIcon item={item} />
                         <span className="truncate text-[15px] text-slate-900">
                           {getContentDisplayName(item)}
                         </span>

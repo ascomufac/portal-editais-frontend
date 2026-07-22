@@ -6,6 +6,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import AdminDriveIcon from '@/components/admin/AdminDriveIcon';
 import { modifiedAfterFromPreset } from '@/components/admin/adminSearchUtils';
 import {
   TYPE_LABELS,
@@ -15,16 +16,12 @@ import {
   getContentTypeLabel,
   isFolderishContent,
   parentPlonePath,
-  resolveContentType,
   searchPortalContent,
   toPlonePath,
   type PloneContentItem,
 } from '@/services/ploneContentService';
 import {
   ChevronDown,
-  FileText,
-  Folder,
-  Link2,
   Loader2,
   Search,
   Settings2,
@@ -85,20 +82,6 @@ const pushHistory = (term: string) => {
   localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
 };
 
-const SuggestIcon: React.FC<{ item: PloneContentItem }> = ({ item }) => {
-  const type = resolveContentType(item);
-  if (isFolderishContent(item) || type === 'Folder') {
-    return <Folder className="h-4 w-4 shrink-0 fill-sky-400/80 text-sky-500" />;
-  }
-  if (type === 'Link') {
-    return <Link2 className="h-4 w-4 shrink-0 text-sky-600" />;
-  }
-  if (type === 'File' || type === 'Image') {
-    return <FileText className="h-4 w-4 shrink-0 text-red-500" />;
-  }
-  return <FileText className="h-4 w-4 shrink-0 text-ufac-blue" />;
-};
-
 const chipClass = (active: boolean) =>
   cn(
     'inline-flex h-8 items-center gap-1 rounded-full border px-3 text-sm font-medium leading-none transition-colors',
@@ -156,7 +139,17 @@ const AdminSearchBar: React.FC<AdminSearchBarProps> = ({
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      // Menus/portals do Radix (Tipo/Pessoas/Modificado) renderizam fora do root
+      if (
+        target.closest('[data-radix-popper-content-wrapper]') ||
+        target.closest('[data-radix-menu-content]') ||
+        target.closest('[role="menu"]')
+      ) {
+        return;
+      }
+      if (!rootRef.current?.contains(target)) {
         setOpen(false);
       }
     };
@@ -287,7 +280,7 @@ const AdminSearchBar: React.FC<AdminSearchBarProps> = ({
     <>
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/10"
+          className="fixed inset-0 z-[55] bg-slate-900/15"
           aria-hidden
           onMouseDown={() => setOpen(false)}
         />
@@ -295,45 +288,51 @@ const AdminSearchBar: React.FC<AdminSearchBarProps> = ({
 
       <div
         ref={rootRef}
-        className={cn('relative z-50 mx-auto w-full max-w-2xl flex-1', className)}
+        className={cn('relative z-[60] mx-auto w-full max-w-2xl flex-1', className)}
       >
-        {!open ? (
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(true);
-              requestAnimationFrame(() => inputRef.current?.focus());
-            }}
-            className="flex h-12 w-full items-center gap-3 rounded-full bg-[#e9eef6] px-4 text-left transition hover:bg-[#e3eaf4]"
-          >
-            <Search className="h-5 w-5 shrink-0 text-slate-500" />
-            <span
-              className={cn(
-                'min-w-0 flex-1 truncate text-base',
-                query || hasFilters ? 'text-slate-800' : 'text-slate-500'
-              )}
+        {/* Placeholder mantém a altura do header enquanto o painel é absolute */}
+        <div className="h-12 w-full" aria-hidden={!open ? undefined : true}>
+          {!open && (
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="flex h-12 w-full items-center gap-3 rounded-full bg-[#e9eef6] px-4 text-left transition hover:bg-[#e3eaf4]"
             >
-              {query ||
-                (hasFilters
-                  ? [typeLabel !== 'Qualquer tipo' ? typeLabel : null, peopleLabel !== 'Pessoas' ? peopleLabel : null, modifiedLabel !== 'Qualquer data' ? modifiedLabel : null]
-                      .filter(Boolean)
-                      .join(' · ') || 'Pesquisar editais'
-                  : 'Pesquisar editais')}
-            </span>
-            {hasFilters && (
-              <span className="hidden rounded-full bg-ufac-lightBlue px-2 py-0.5 text-[11px] font-medium text-ufac-blue sm:inline">
-                Filtros
+              <Search className="h-5 w-5 shrink-0 text-slate-500" />
+              <span
+                className={cn(
+                  'min-w-0 flex-1 truncate text-base',
+                  query || hasFilters ? 'text-slate-800' : 'text-slate-500'
+                )}
+              >
+                {query ||
+                  (hasFilters
+                    ? [
+                        typeLabel !== 'Qualquer tipo' ? typeLabel : null,
+                        peopleLabel !== 'Pessoas' ? peopleLabel : null,
+                        modifiedLabel !== 'Qualquer data' ? modifiedLabel : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ') || 'Pesquisar editais'
+                    : 'Pesquisar editais')}
               </span>
-            )}
-            <span
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-500"
-              title="Opções de pesquisa"
-            >
-              <Settings2 className="h-4 w-4" />
-            </span>
-          </button>
-        ) : (
-          <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl shadow-slate-300/50">
+              {hasFilters && (
+                <span className="hidden rounded-full bg-ufac-lightBlue px-2 py-0.5 text-[11px] font-medium text-ufac-blue sm:inline">
+                  Filtros
+                </span>
+              )}
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-500"
+                title="Opções de pesquisa"
+              >
+                <Settings2 className="h-4 w-4" />
+              </span>
+            </button>
+          )}
+        </div>
+
+        {open && (
+          <div className="absolute left-0 right-0 top-0 z-[60] overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl shadow-slate-400/30">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -378,14 +377,14 @@ const AdminSearchBar: React.FC<AdminSearchBarProps> = ({
             </form>
 
             <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 sm:px-4">
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <button type="button" className={chipClass(filters.type !== 'all')}>
                     Tipo{filters.type !== 'all' ? `: ${typeLabel}` : ''}
                     <ChevronDown className="h-3.5 w-3.5 shrink-0" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="rounded-xl">
+                <DropdownMenuContent align="start" className="z-[70] rounded-xl">
                   {TYPE_OPTIONS.map((t) => (
                     <DropdownMenuItem
                       key={t.id}
@@ -399,6 +398,7 @@ const AdminSearchBar: React.FC<AdminSearchBarProps> = ({
               </DropdownMenu>
 
               <DropdownMenu
+                modal={false}
                 onOpenChange={(isOpen) => {
                   if (isOpen) setPeopleDraft(filters.creator);
                 }}
@@ -409,7 +409,7 @@ const AdminSearchBar: React.FC<AdminSearchBarProps> = ({
                     <ChevronDown className="h-3.5 w-3.5 shrink-0" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-64 rounded-xl p-2">
+                <DropdownMenuContent align="start" className="z-[70] w-64 rounded-xl p-2">
                   <DropdownMenuItem
                     onClick={() => setFilters((f) => ({ ...f, creator: '' }))}
                   >
@@ -427,6 +427,7 @@ const AdminSearchBar: React.FC<AdminSearchBarProps> = ({
                   <div
                     className="mt-1 space-y-2 border-t border-slate-100 px-1 pt-2"
                     onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
                   >
                     <p className="px-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
                       Login do criador
@@ -458,7 +459,7 @@ const AdminSearchBar: React.FC<AdminSearchBarProps> = ({
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <button type="button" className={chipClass(filters.modified !== 'any')}>
                     Modificado
@@ -466,7 +467,7 @@ const AdminSearchBar: React.FC<AdminSearchBarProps> = ({
                     <ChevronDown className="h-3.5 w-3.5 shrink-0" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="rounded-xl">
+                <DropdownMenuContent align="start" className="z-[70] rounded-xl">
                   {MODIFIED_OPTIONS.map((m) => (
                     <DropdownMenuItem
                       key={m.id}
@@ -535,7 +536,7 @@ const AdminSearchBar: React.FC<AdminSearchBarProps> = ({
                           className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50"
                           onClick={() => openItem(item)}
                         >
-                          <SuggestIcon item={item} />
+                          <AdminDriveIcon item={item} compact />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-medium text-slate-800">
                               {getContentDisplayName(item)}

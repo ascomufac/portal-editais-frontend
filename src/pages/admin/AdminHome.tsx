@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import AdminDriveIcon from '@/components/admin/AdminDriveIcon';
 import AdminItemHoverCard from '@/components/admin/AdminItemHoverCard';
 import AdminLocationPill from '@/components/admin/AdminLocationPill';
 import AdminRecentItemActions from '@/components/admin/AdminRecentItemActions';
@@ -66,92 +67,6 @@ const recentMetaLine = (item: PloneContentItem, withLocation = false) => {
 const isUnpublished = (item: PloneContentItem) => {
   const state = getReviewState(item);
   return Boolean(state && state !== 'published');
-};
-
-const RecentIcon: React.FC<{ item: PloneContentItem; compact?: boolean }> = ({
-  item,
-  compact = false,
-}) => {
-  const privateItem = getReviewState(item) === 'private';
-  const type = resolveContentType(item);
-  const folderish = isFolderishContent(item);
-  const box = compact
-    ? 'flex h-8 w-8 shrink-0 items-center justify-center'
-    : 'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg';
-  const icon = 'h-5 w-5';
-
-  if (folderish || type === 'Folder' || type === 'Plone Site' || type === 'Collection') {
-    return (
-      <span className={cn(box, 'relative', !compact && (privateItem ? 'bg-slate-100' : 'bg-sky-50'))}>
-        <Folder
-          className={cn(
-            icon,
-            privateItem
-              ? 'fill-slate-400/90 text-slate-500'
-              : 'fill-sky-400 text-sky-500'
-          )}
-          strokeWidth={1.5}
-        />
-        {privateItem && (
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-600">
-            <Lock className="h-2 w-2 fill-none text-white" strokeWidth={2.5} aria-hidden />
-          </span>
-        )}
-      </span>
-    );
-  }
-  if (type === 'Link') {
-    return (
-      <span
-        className={cn(
-          box,
-          'relative',
-          !compact && (privateItem ? 'bg-slate-100' : 'bg-sky-50 text-sky-600')
-        )}
-      >
-        <Link2 className={cn(icon, privateItem ? 'text-slate-500' : 'text-sky-600')} />
-        {privateItem && (
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-600">
-            <Lock className="h-2 w-2 fill-none text-white" strokeWidth={2.5} aria-hidden />
-          </span>
-        )}
-      </span>
-    );
-  }
-  if (type === 'File' || type === 'Image') {
-    return (
-      <span
-        className={cn(
-          box,
-          'relative',
-          !compact && (privateItem ? 'bg-slate-100' : 'bg-red-50 text-red-500')
-        )}
-      >
-        <FileText className={cn(icon, privateItem ? 'text-slate-500' : 'text-red-500')} />
-        {privateItem && (
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-600">
-            <Lock className="h-2 w-2 fill-none text-white" strokeWidth={2.5} aria-hidden />
-          </span>
-        )}
-      </span>
-    );
-  }
-  return (
-    <span
-      className={cn(
-        box,
-        'relative',
-        !compact && (privateItem ? 'bg-slate-100' : 'bg-ufac-lightBlue text-ufac-blue')
-      )}
-    >
-      <FileText className={cn(icon, privateItem ? 'text-slate-500' : 'text-ufac-blue')} />
-      {privateItem && (
-        <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-600">
-          <Lock className="h-2 w-2 fill-none text-white" strokeWidth={2.5} aria-hidden />
-        </span>
-      )}
-    </span>
-  );
 };
 
 const recentCardClass = (item: PloneContentItem) => {
@@ -325,7 +240,7 @@ const AdminHome: React.FC = () => {
                     onClick={() => openRecent(item)}
                     className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   >
-                    <RecentIcon item={item} />
+                    <AdminDriveIcon item={item} />
                     <div className="min-w-0 flex-1">
                       <AdminItemHoverCard item={item} side="top" align="start">
                         <p className="truncate text-sm font-medium text-slate-900">
@@ -364,7 +279,7 @@ const AdminHome: React.FC = () => {
                     }}
                     className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden text-left"
                   >
-                    <RecentIcon item={item} />
+                    <AdminDriveIcon item={item} />
                     <div className="min-w-0 flex-1 overflow-hidden">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <div className="min-w-0 flex-1 overflow-hidden">

@@ -206,7 +206,7 @@ const AdminLayout: React.FC = () => {
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-[#f0f4f9]">
       {/* Top bar Drive-like */}
-      <header className="flex h-16 shrink-0 items-center gap-3 px-3 sm:px-4">
+      <header className="relative z-[60] flex h-16 shrink-0 items-center gap-3 overflow-visible px-3 sm:px-4">
         <Link
           to="/admin"
           className="flex shrink-0 items-center gap-2 px-1"
