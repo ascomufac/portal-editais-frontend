@@ -1,176 +1,266 @@
-
-import { TextItem } from 'pdfjs-dist/types/src/display/api';
-
 /**
- * Verifica se uma URL aponta para um recurso do CMS Plone
- * @param {string} url - A URL a ser verificada
- * @returns {boolean} Verdadeiro se a URL for de um recurso Plone
+ * Utilitários para resolução e carregamento de PDFs do Plone/UFAC
+ * @module pdfUtils
  */
+
+export const PLONE_SITE = 'https://www3.ufac.br';
+export const PLONE_PROXY_PREFIX = '/__plone__';
+
 export const isPloneUrl = (url: string): boolean => {
-  return url.includes('ufac.br') && 
-    (url.includes('/@@download/') || 
-     url.includes('/view') || 
-     url.includes('/at_download/') ||
-     url.includes('/edital'));
+  if (!url) return false;
+  return (
+    url.includes('ufac.br') ||
+    url.startsWith(PLONE_PROXY_PREFIX) ||
+    url.includes('/@@download/') ||
+    url.includes('/at_download/')
+  );
 };
 
-/**
- * Verifica se a URL ou objeto fornecido pode ser uma resposta JSON do Plone
- * @param {string | object} urlOrObject - URL ou objeto a ser verificado
- * @returns {boolean} Verdadeiro se o parâmetro for uma possível resposta JSON do Plone
- */
 export const isPloneJsonResponse = (urlOrObject: string | object): boolean => {
   if (typeof urlOrObject === 'string') {
     try {
-      // Tenta analisar como JSON
       const obj = JSON.parse(urlOrObject);
-      return obj && 
-        (obj.targetUrl || 
-         (obj.file && obj.file.download) || 
-         obj['@type'] === 'File');
-    } catch (e) {
-      // Não é JSON, verifica se é uma URL da API Plone
-      return urlOrObject.includes('ufac.br') && 
-        (urlOrObject.includes('@id') || 
-         urlOrObject.includes('@@API'));
+      return (
+        obj &&
+        (obj.targetUrl || (obj.file && obj.file.download) || obj['@type'] === 'File')
+      );
+    } catch {
+      return (
+        urlOrObject.includes('ufac.br') &&
+        (urlOrObject.includes('@id') || urlOrObject.includes('++api++'))
+      );
     }
-  } else if (typeof urlOrObject === 'object' && urlOrObject !== null) {
-    // Verifica se o objeto tem estrutura JSON do Plone
-    return 'targetUrl' in urlOrObject || 
-      ('file' in urlOrObject && typeof urlOrObject.file === 'object' && 'download' in urlOrObject.file) ||
-      '@type' in urlOrObject;
+  }
+  if (typeof urlOrObject === 'object' && urlOrObject !== null) {
+    return (
+      'targetUrl' in urlOrObject ||
+      ('file' in urlOrObject &&
+        typeof (urlOrObject as { file?: unknown }).file === 'object') ||
+      '@type' in urlOrObject
+    );
   }
   return false;
 };
 
 /**
- * Obtém uma URL de download direta a partir de uma URL da API Plone
- * @param {string} url - URL da API Plone
- * @returns {string} URL de download direta
+ * Extrai o caminho relativo no site Plone a partir de qualquer URL UFAC
  */
-export const getPloneApiUrl = (url: string): string => {
+export const toPloneSitePath = (url: string): string => {
   if (!url) return '';
-  
-  // Se já for uma URL de download direta, retorna como está
-  if (url.includes('/@@download/') || url.includes('/at_download/')) {
-    return url;
+  let path = url.trim();
+
+  path = path
+    .replace(/^https?:\/\/www3\.ufac\.br/i, '')
+    .replace(/^https?:\/\/[^/]*ufac\.br/i, '')
+    .replace(PLONE_PROXY_PREFIX, '')
+    .replace(/^\/\+\+api\+\+/, '')
+    .replace(/\/@@download\/file\/?$/i, '')
+    .replace(/\/@download\/file\/?$/i, '')
+    .replace(/\/view\/?$/i, '');
+
+  if (!path.startsWith('/')) path = `/${path}`;
+  return path.replace(/\/+/g, '/');
+};
+
+/**
+ * Converte URL absoluta do Plone em URL same-origin via proxy.
+ * Preserva /@@download/file quando presente.
+ */
+export const toProxyUrl = (url: string): string => {
+  if (!url) return '';
+  if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+  if (url.startsWith(PLONE_PROXY_PREFIX)) return url;
+
+  if (url.startsWith('/') && !url.startsWith('//')) {
+    return `${PLONE_PROXY_PREFIX}${url}`;
   }
-  
-  // Tenta converter uma URL de visualização para uma URL de download
-  if (url.includes('/view')) {
-    return url.replace('/view', '/@@download/file');
+
+  if (isPloneUrl(url)) {
+    let path = url
+      .replace(/^https?:\/\/www3\.ufac\.br/i, '')
+      .replace(/^https?:\/\/[^/]*ufac\.br/i, '')
+      .replace(/^\/\+\+api\+\+/, '');
+
+    if (!path.startsWith('/')) path = `/${path}`;
+    return `${PLONE_PROXY_PREFIX}${path.replace(/\/+/g, '/')}`;
   }
-  
-  // Adiciona sufixo de download se for um arquivo sem caminho de download
-  if (!url.endsWith('/@@download/file') && !url.includes('/at_download/')) {
-    // Verifica se a URL já tem parâmetros
-    if (url.includes('?')) {
-      return `${url}&download=true`;
-    } else {
-      return `${url}/@@download/file`;
-    }
-  }
-  
+
   return url;
 };
 
 /**
- * Extrai URL do PDF de uma resposta JSON do Plone
- * @param {string | object} urlOrJson - URL ou objeto JSON do Plone
- * @returns {Promise<string>} URL do PDF extraída
- * @throws {Error} Erro se não for possível extrair a URL do PDF
+ * Monta URL de download direto do arquivo no Plone
  */
-export const getPdfUrl = async (urlOrJson: string | object): Promise<string> => {
-  try {
-    let jsonData;
-    
-    // Analisa JSON se for string, ou usa o objeto diretamente
-    if (typeof urlOrJson === 'string') {
-      try {
-        jsonData = JSON.parse(urlOrJson);
-      } catch (e) {
-        // Se não for JSON válido, tenta buscar da URL
-        const response = await fetch(urlOrJson);
-        if (!response.ok) {
-          throw new Error(`Falha ao buscar JSON do Plone: ${response.statusText}`);
-        }
-        jsonData = await response.json();
-      }
-    } else {
-      jsonData = urlOrJson;
-    }
-    
-    // Extrai URL de download da estrutura JSON do Plone
-    if (jsonData) {
-      // Verifica o campo targetUrl primeiro (primário)
-      if (jsonData.targetUrl) {
-        console.log('Usando targetUrl do JSON do Plone:', jsonData.targetUrl);
-        return jsonData.targetUrl;
-      }
-      
-      // Verifica o campo file.download em segundo lugar
-      if (jsonData.file && jsonData.file.download) {
-        console.log('Usando file.download do JSON do Plone:', jsonData.file.download);
-        return jsonData.file.download;
-      }
-      
-      // Verifica o campo @id como fallback
-      if (jsonData['@id']) {
-        console.log('Usando @id do JSON do Plone com sufixo de download:', jsonData['@id']);
-        return `${jsonData['@id']}/@@download/file`;
-      }
-    }
-    
-    throw new Error('Não foi possível extrair URL do PDF da resposta do Plone');
-  } catch (error) {
-    console.error('Erro ao processar JSON do Plone:', error);
-    throw error;
+export const getPloneDownloadUrl = (url: string): string => {
+  if (!url) return '';
+  if (url.includes('/@@download/') || url.includes('/at_download/')) {
+    return url;
   }
+  if (url.includes('/view')) {
+    return url.replace('/view', '/@@download/file');
+  }
+
+  const path = toPloneSitePath(url);
+  return `${PLONE_SITE}${path}/@@download/file`;
 };
 
 /**
- * Extrai o nome do arquivo de uma URL
- * @param {string} url - URL contendo o nome do arquivo
- * @returns {string} Nome do arquivo extraído
+ * URL de metadados via ++api++ (tem CORS; útil fora do proxy)
  */
+export const getPloneApiUrl = (url: string): string => {
+  const path = toPloneSitePath(url);
+  return `${PLONE_SITE}/++api++${path}`;
+};
+
 export const getFilenameFromUrl = (url: string): string => {
   try {
     if (!url) return 'document.pdf';
-    
-    // Extrai de padrões de URL do Plone
+
     if (url.includes('/@@download/')) {
       const parts = url.split('/');
-      const fileIndex = parts.findIndex(part => part === '@@download');
-      if (fileIndex > 0) {
-        return parts[fileIndex - 1];
-      }
+      const fileIndex = parts.findIndex((part) => part === '@@download');
+      if (fileIndex > 0) return decodeURIComponent(parts[fileIndex - 1]);
     }
-    
-    // Extração padrão da URL
-    const urlObj = new URL(url);
-    const pathname = urlObj.pathname;
-    const segments = pathname.split('/').filter(Boolean);
+
+    const path = toPloneSitePath(url);
+    const segments = path.split('/').filter(Boolean);
     if (segments.length > 0) {
-      return segments[segments.length - 1];
+      return decodeURIComponent(segments[segments.length - 1]);
     }
-    
+
     return 'document.pdf';
-  } catch (e) {
+  } catch {
     return 'document.pdf';
   }
 };
 
-/**
- * Tipo de ajuste para exibição do PDF
- * @typedef {'width' | 'height' | 'page'} FitType
- */
+export const extractDownloadUrlFromJson = (json: Record<string, unknown>): string | null => {
+  if (!json) return null;
+
+  if (typeof json.targetUrl === 'string') return json.targetUrl;
+
+  const file = json.file as { download?: string } | undefined;
+  if (file?.download) return file.download;
+
+  if (typeof json['@id'] === 'string') {
+    return `${json['@id']}/@@download/file`;
+  }
+
+  return null;
+};
+
+export const getPdfUrl = async (urlOrJson: string | object): Promise<string> => {
+  let jsonData: Record<string, unknown>;
+
+  if (typeof urlOrJson === 'string') {
+    try {
+      jsonData = JSON.parse(urlOrJson);
+    } catch {
+      const apiProxy = `${PLONE_PROXY_PREFIX}/++api++${toPloneSitePath(urlOrJson)}`;
+      const res = await fetch(apiProxy, { headers: { Accept: 'application/json' } });
+      if (!res.ok) {
+        throw new Error(`Falha ao buscar metadados do Plone: ${res.status}`);
+      }
+      jsonData = await res.json();
+    }
+  } else {
+    jsonData = urlOrJson as Record<string, unknown>;
+  }
+
+  const extracted = extractDownloadUrlFromJson(jsonData);
+  if (extracted) return extracted;
+
+  throw new Error('Não foi possível extrair URL do PDF da resposta do Plone');
+};
+
 export type FitType = 'width' | 'height' | 'page';
 
+export interface ResolvedPdfSource {
+  /** Fonte para o react-pdf (blob URL same-origin) */
+  viewerUrl: string;
+  /** URL original/absoluta para download e "abrir em nova aba" */
+  downloadUrl: string;
+  fileName: string;
+  revoke?: () => void;
+}
+
 /**
- * Obtém o número da página mais visível em um contêiner
- * @param {HTMLDivElement} containerRef - O elemento contêiner
- * @returns {number | null} O número da página mais visível
+ * Resolve e baixa o PDF via proxy (same-origin), retornando blob URL para o react-pdf.
+ * Contorna a falta de CORS nos arquivos estáticos do Plone/Varnish.
  */
+export const resolvePdfSource = async (rawUrl: string): Promise<ResolvedPdfSource> => {
+  if (!rawUrl) {
+    throw new Error('URL do PDF não informada');
+  }
+
+  if (rawUrl.startsWith('blob:') || rawUrl.startsWith('data:')) {
+    return {
+      viewerUrl: rawUrl,
+      downloadUrl: rawUrl,
+      fileName: 'document.pdf',
+    };
+  }
+
+  let downloadUrl = rawUrl;
+  let fileName = getFilenameFromUrl(rawUrl);
+
+  // Metadados via ++api++ no proxy (CORS same-origin)
+  if (isPloneUrl(rawUrl)) {
+    try {
+      const apiPath = `${PLONE_PROXY_PREFIX}/++api++${toPloneSitePath(rawUrl)}`;
+      const metaRes = await fetch(apiPath, {
+        headers: { Accept: 'application/json' },
+      });
+
+      if (metaRes.ok) {
+        const contentType = metaRes.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const meta = await metaRes.json();
+          const fromMeta = extractDownloadUrlFromJson(meta);
+          if (fromMeta) downloadUrl = fromMeta;
+          if (meta?.file?.filename) fileName = meta.file.filename;
+          else if (meta?.title) fileName = `${meta.title}.pdf`;
+        }
+      }
+    } catch (err) {
+      console.warn('Metadados Plone indisponíveis, usando URL direta:', err);
+      downloadUrl = getPloneDownloadUrl(rawUrl);
+    }
+
+    if (!downloadUrl.includes('/@@download/') && !downloadUrl.includes('/at_download/')) {
+      downloadUrl = getPloneDownloadUrl(downloadUrl);
+    }
+  }
+
+  // Busca o binário via proxy (same-origin) — evita CORS do Varnish
+  const fetchUrl = isPloneUrl(downloadUrl) ? toProxyUrl(downloadUrl) : downloadUrl;
+  const pdfRes = await fetch(fetchUrl);
+
+  if (!pdfRes.ok) {
+    throw new Error(`Falha ao baixar PDF (${pdfRes.status})`);
+  }
+
+  const blob = await pdfRes.blob();
+  if (!blob || blob.size === 0) {
+    throw new Error('Arquivo PDF vazio ou inválido');
+  }
+
+  // Garante tipo PDF mesmo se o servidor mandar octet-stream
+  const pdfBlob =
+    blob.type === 'application/pdf'
+      ? blob
+      : new Blob([blob], { type: 'application/pdf' });
+
+  const viewerUrl = URL.createObjectURL(pdfBlob);
+
+  return {
+    viewerUrl,
+    downloadUrl: isPloneUrl(downloadUrl) ? downloadUrl : fetchUrl,
+    fileName,
+    revoke: () => URL.revokeObjectURL(viewerUrl),
+  };
+};
+
 export const getMostVisiblePage = (containerRef: HTMLDivElement): number | null => {
   if (!containerRef) return null;
 
@@ -180,40 +270,31 @@ export const getMostVisiblePage = (containerRef: HTMLDivElement): number | null 
   let mostVisiblePage: number | null = null;
   let maxVisibleHeight = 0;
 
-  pageElements.forEach(page => {
+  pageElements.forEach((page) => {
     const pageRect = page.getBoundingClientRect();
-
-    // Calcula a interseção da página e do contêiner
     const intersectionHeight = Math.max(
       0,
-      Math.min(containerRect.bottom, pageRect.bottom) - Math.max(containerRect.top, pageRect.top)
+      Math.min(containerRect.bottom, pageRect.bottom) -
+        Math.max(containerRect.top, pageRect.top)
     );
 
-    // Considera apenas páginas que são pelo menos parcialmente visíveis
-    if (intersectionHeight > 0) {
-      // Se esta página é mais visível que a página mais visível atual, atualiza
-      if (intersectionHeight > maxVisibleHeight) {
-        maxVisibleHeight = intersectionHeight;
-        mostVisiblePage = parseInt(page.getAttribute('data-page-number') || '0', 10);
-      }
+    if (intersectionHeight > 0 && intersectionHeight > maxVisibleHeight) {
+      maxVisibleHeight = intersectionHeight;
+      mostVisiblePage = parseInt(page.getAttribute('data-page-number') || '0', 10);
     }
   });
 
   return mostVisiblePage;
 };
 
-/**
- * Extrai o contexto de texto ao redor de um termo específico em uma string
- * @param {string} text - O texto para buscar
- * @param {string} searchTerm - O termo para encontrar o contexto
- * @param {number} contextLength - O número de caracteres a incluir antes e depois do termo
- * @returns {string} O contexto extraído
- */
-export const extractTextContext = (text: string, searchTerm: string, contextLength: number = 50): string => {
+export const extractTextContext = (
+  text: string,
+  searchTerm: string,
+  contextLength: number = 50
+): string => {
   if (!text || !searchTerm) return '';
 
   const index = text.toLowerCase().indexOf(searchTerm.toLowerCase());
-
   if (index === -1) return '';
 
   const start = Math.max(0, index - contextLength);
@@ -222,40 +303,8 @@ export const extractTextContext = (text: string, searchTerm: string, contextLeng
   return text.substring(start, end);
 };
 
-/**
- * Extrai URL de download de uma resposta JSON do Plone
- * @param {any} json - Resposta JSON da API Plone
- * @returns {string | null} A URL de download do PDF
- */
-export const extractDownloadUrlFromJson = (json: any): string | null => {
-  if (!json) return null;
-  
-  // Verifica URL de download direta no campo targetUrl
-  if (json.targetUrl) {
-    return json.targetUrl;
-  }
-  
-  // Verifica URL de download no campo file.download
-  if (json.file && json.file.download) {
-    return json.file.download;
-  }
-  
-  // Verifica campo @id para construir uma URL de download
-  if (json['@id']) {
-    return `${json['@id']}/@@download/file`;
-  }
-  
-  return null;
-};
-
-/**
- * Retorna a configuração de opções do PDF.js
- * @returns {Object} Objeto com opções do PDF.js
- */
-export const getPdfOptions = () => {
-  return {
-    cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/cmaps/',
-    cMapPacked: true,
-    standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/standard_fonts/',
-  };
-};
+export const getPdfOptions = () => ({
+  cMapUrl: `https://unpkg.com/pdfjs-dist@3.11.174/cmaps/`,
+  cMapPacked: true,
+  standardFontDataUrl: `https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/`,
+});

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Loader2, Download, AlertTriangle } from 'lucide-react';
-import { getFilenameFromUrl, isPloneUrl, getPloneApiUrl, isPloneJsonResponse, getPdfUrl } from './utils/pdfUtils';
+import { getPloneDownloadUrl, isPloneUrl } from './utils/pdfUtils';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface PdfLoadingErrorProps {
@@ -10,41 +10,7 @@ interface PdfLoadingErrorProps {
 }
 
 const PdfLoadingError: React.FC<PdfLoadingErrorProps> = ({ loading, error, fileUrl }) => {
-  const [directUrl, setDirectUrl] = React.useState<string>(fileUrl);
-  
-  React.useEffect(() => {
-    const processUrl = async () => {
-      try {
-        if (isPloneJsonResponse(fileUrl)) {
-          const pdfUrl = await getPdfUrl(fileUrl);
-          if (pdfUrl) {
-            setDirectUrl(pdfUrl);
-          }
-        } 
-        else if (isPloneUrl(fileUrl)) {
-          setDirectUrl(getPloneApiUrl(fileUrl));
-        }
-        else {
-          setDirectUrl(fileUrl);
-        }
-      } catch (e) {
-        console.error("Error processing URL in error component:", e);
-        setDirectUrl(fileUrl);
-      }
-    };
-    
-    processUrl();
-  }, [fileUrl]);
-
-  const handleDownload = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (isPloneUrl(directUrl) || isPloneJsonResponse(directUrl)) {
-      e.preventDefault();
-      
-      console.log('Opening document from:', directUrl);
-      
-      window.open(directUrl, '_blank');
-    }
-  };
+  const directUrl = isPloneUrl(fileUrl) ? getPloneDownloadUrl(fileUrl) : fileUrl;
 
   if (loading) {
     return (
@@ -65,23 +31,22 @@ const PdfLoadingError: React.FC<PdfLoadingErrorProps> = ({ loading, error, fileU
             Não foi possível visualizar este PDF. Tente visualizá-lo ou baixá-lo diretamente.
           </AlertDescription>
         </Alert>
-        
+
         <div className="flex gap-3">
           <a
             href={directUrl}
-            download 
-            target="_blank" 
+            download
+            target="_blank"
             rel="noopener noreferrer"
-            onClick={handleDownload}
             className="px-4 py-2 bg-ufac-blue text-white rounded hover:bg-blue-700 flex items-center"
           >
             <Download className="h-4 w-4 mr-2" />
             Baixar documento
           </a>
-          
+
           <a
             href={directUrl}
-            target="_blank" 
+            target="_blank"
             rel="noopener noreferrer"
             className="px-4 py-2 border border-ufac-blue text-ufac-blue rounded hover:bg-gray-100 flex items-center"
           >

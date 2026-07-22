@@ -1,6 +1,5 @@
-
 import React, { useEffect } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useEditalDetails } from '@/hooks/useEditalDetails';
 import MainLayout from '@/layouts/MainLayout';
 import EditalFolderNavigator from '@/components/edital/EditalFolderNavigator';
@@ -9,16 +8,20 @@ import { Calendar, Clock, FileText, UserCircle } from 'lucide-react';
 import EditalTitleSkeleton from '@/components/edital/EditalTitleSkeleton';
 import { formatDate } from '@/lib/utils';
 
+/**
+ * Extrai o caminho Plone completo a partir de /edital/...
+ * Ex.: /edital/prograd/processo-seletivo-... → prograd/processo-seletivo-...
+ */
+const getEditalPathFromLocation = (pathname: string): string | undefined => {
+  const match = pathname.match(/^\/edital\/(.+)$/);
+  if (!match?.[1]) return undefined;
+  return decodeURIComponent(match[1].replace(/\/+$/, ''));
+};
+
 const EditalDetail: React.FC = () => {
   const { pathname } = useLocation();
-  const { editalId, setor } = useParams<{ editalId: string, setor: string }>();
-  
-  // Combine setor and editalId for proper path handling
-  const fullEditalPath = setor && editalId 
-    ? `${setor}/${decodeURIComponent(editalId)}`
-    : editalId ? decodeURIComponent(editalId) 
-    : undefined;
-  
+  const fullEditalPath = getEditalPathFromLocation(pathname);
+
   const {
     edital,
     documents,
@@ -29,7 +32,7 @@ const EditalDetail: React.FC = () => {
     navigateToFolder,
     navigateUp,
     navigateToSpecificBreadcrumb,
-    getCurrentFolderContents
+    getCurrentFolderContents,
   } = useEditalDetails(fullEditalPath);
 
   useEffect(() => {
@@ -47,15 +50,19 @@ const EditalDetail: React.FC = () => {
           <Card className="mb-8 border-none shadow-none bg-white">
             <CardContent className="p-6 pt-6">
               <div className="flex items-center mb-4">
-                <div className={`h-14 w-14 rounded-full flex items-center justify-center ${edital.color || 'bg-blue-50'} mr-4`}>
+                <div
+                  className={`h-14 w-14 rounded-full flex items-center justify-center ${edital.color || 'bg-blue-50'} mr-4`}
+                >
                   {edital.icon || <FileText className="h-8 w-8 text-blue-600" />}
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold">{edital.title}</h1>
-                  {edital.description && <p className="text-gray-600">{edital.description}</p>}
+                  {edital.description && (
+                    <p className="text-gray-600">{edital.description}</p>
+                  )}
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
                 {edital.effective && (
                   <div className="flex items-center">
@@ -66,7 +73,7 @@ const EditalDetail: React.FC = () => {
                     </div>
                   </div>
                 )}
-                
+
                 {edital.modified && (
                   <div className="flex items-center">
                     <Clock className="h-5 w-5 text-gray-400 mr-2" />
@@ -76,7 +83,7 @@ const EditalDetail: React.FC = () => {
                     </div>
                   </div>
                 )}
-                
+
                 {edital.author && (
                   <div className="flex items-center">
                     <UserCircle className="h-5 w-5 text-gray-400 mr-2" />
@@ -87,6 +94,15 @@ const EditalDetail: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {edital.htmlContent && (
+                <div
+                  className="prose prose-sm max-w-none mt-8 text-gray-700
+                    prose-a:text-ufac-blue prose-a:underline
+                    prose-headings:text-ufac-blue prose-li:my-1"
+                  dangerouslySetInnerHTML={{ __html: edital.htmlContent }}
+                />
+              )}
             </CardContent>
           </Card>
         ) : null}
@@ -95,7 +111,9 @@ const EditalDetail: React.FC = () => {
           <div className="bg-red-50 p-6 rounded-lg text-red-700 mb-6">
             <h3 className="font-bold text-lg mb-2">Erro ao carregar o edital</h3>
             <p>{error.message}</p>
-            <p className="mt-2">Tente novamente mais tarde ou entre em contato com o suporte.</p>
+            <p className="mt-2">
+              Tente novamente mais tarde ou entre em contato com o suporte.
+            </p>
           </div>
         ) : (
           <EditalFolderNavigator

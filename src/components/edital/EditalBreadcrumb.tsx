@@ -55,8 +55,11 @@ const EditalBreadcrumb: React.FC<EditalBreadcrumbProps> = ({
                   {index === breadcrumbItems.length - 1 ? (
                     <BreadcrumbPage>{item.title}</BreadcrumbPage>
                   ) : (
-                    <BreadcrumbLink 
-                      onClick={() => {
+                    <BreadcrumbLink
+                      href="#"
+                      className="cursor-pointer select-none"
+                      onClick={(e) => {
+                        e.preventDefault();
                         const steps = breadcrumbItems.length - 1 - index;
                         navigateToSpecificBreadcrumb(steps);
                       }}
@@ -72,13 +75,15 @@ const EditalBreadcrumb: React.FC<EditalBreadcrumbProps> = ({
           // Standard breadcrumb navigation
           <>
             <BreadcrumbItem>
-              <BreadcrumbLink 
-                onClick={() => {
+              <BreadcrumbLink
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
                   while (breadcrumbItems.length > 0) {
                     navigateUp();
                   }
                 }}
-                className="flex items-center gap-1 hover:text-ufac-blue transition-colors"
+                className="flex items-center gap-1 cursor-pointer select-none hover:text-ufac-blue transition-colors"
               >
                 <Home className="h-3.5 w-3.5" />
                 <span>{rootTitle}</span>
@@ -92,9 +97,11 @@ const EditalBreadcrumb: React.FC<EditalBreadcrumbProps> = ({
                   {index === breadcrumbItems.length - 1 ? (
                     <BreadcrumbPage>{item.title}</BreadcrumbPage>
                   ) : (
-                    <BreadcrumbLink 
-                      onClick={() => {
-                        // Navega para breadcrumb específico
+                    <BreadcrumbLink
+                      href="#"
+                      className="cursor-pointer select-none"
+                      onClick={(e) => {
+                        e.preventDefault();
                         const steps = breadcrumbItems.length - 1 - index;
                         navigateToSpecificBreadcrumb(steps);
                       }}

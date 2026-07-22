@@ -1,48 +1,132 @@
+import { useEffect, useState } from 'react';
+import { useLocation, useParams } from 'react-router-dom';
+import {
+  categoryToSetorMap,
+  fetchEditaisBySetor,
+  resolveSetorId,
+  searchSetorItems,
+  setorTitles,
+  toEditalHref,
+  type EditalItem,
+} from '@/services/editalService';
+import { CategoryDataType, EditalType } from '@/types/edital';
+import { FileText, Folder } from 'lucide-react';
+import { createElement } from 'react';
 
-import { useState, useEffect } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
-import categoryData from '@/data/categoryData';
-import { CategoryDataType } from '@/types/edital';
+const mapItemToEdital = (item: EditalItem, section: string): EditalType => ({
+  id: item['@id'],
+  title: item.title || '',
+  description: item.description || '',
+  color: item['@type'] === 'Folder' ? 'bg-blue-50' : 'bg-red-50',
+  icon: createElement(
+    item['@type'] === 'Folder' ? Folder : FileText,
+    { className: 'h-8 w-8 text-ufac-blue', strokeWidth: 1 }
+  ),
+  href: toEditalHref(item['@id']),
+  modified: item.modified,
+  effective: item.effective,
+  author: item.Creator || item.creators?.[0],
+  section,
+  items_total: item.items_total,
+  is_folderish: item.is_folderish || item['@type'] === 'Folder',
+  '@type': item['@type'],
+});
 
-export const useCategory = (): CategoryDataType => {
-  const { category } = useParams<{ category: string }>();
+export interface UseCategoryResult extends CategoryDataType {
+  isLoading: boolean;
+  error: string | null;
+  setorId: string;
+}
+
+/**
+ * Carrega a categoria/setor a partir da API Plone (sem dados mockados)
+ */
+export const useCategory = (setorOverride?: string): UseCategoryResult => {
+  const { category, proReitoriaId } = useParams<{
+    category?: string;
+    proReitoriaId?: string;
+  }>();
   const location = useLocation();
-  const [currentCategory, setCurrentCategory] = useState<CategoryDataType>(categoryData['graduacao']);
+
+  const [state, setState] = useState<UseCategoryResult>({
+    title: '',
+    editais: [],
+    isLoading: true,
+    error: null,
+    setorId: '',
+  });
 
   useEffect(() => {
-    // Extract category from pathname if not available in params
-    const pathSegments = location.pathname.split('/');
-    const pathCategory = pathSegments[1] || '';
+    const pathSegments = location.pathname.split('/').filter(Boolean);
+    const pathCategory = pathSegments[0] || '';
 
-    // Map common route names to category keys
-    const routeToCategoryMap: Record<string, keyof typeof categoryData> = {
-      'graduacao': 'graduacao',
-      'pos-graduacao': 'pos-graduacao',
-      'extensao': 'extensao',
-      'estudantis': 'estudantis',
-      'pessoas': 'pessoas',
-      'idiomas': 'idiomas',
-      'colegio': 'colegio'
+    let rawKey =
+      setorOverride ||
+      proReitoriaId ||
+      category ||
+      (pathCategory in categoryToSetorMap ? pathCategory : pathSegments[1]) ||
+      'prograd';
+
+    // Rotas /graduacao etc. ou IDs Plone diretos
+    if (pathCategory in categoryToSetorMap && !setorOverride && !proReitoriaId) {
+      rawKey = pathCategory;
+    }
+
+    const setorId = resolveSetorId(rawKey);
+
+    let cancelled = false;
+
+    const load = async () => {
+      setState((prev) => ({ ...prev, isLoading: true, error: null, setorId }));
+
+      try {
+        // Filhos diretos do setor no Plone (pastas, collections, etc.)
+        let data = await fetchEditaisBySetor(
+          `${setorId}?b_size=50&sort_on=modified&sort_order=descending&metadata_fields=created&metadata_fields=modified&metadata_fields=effective&metadata_fields=Creator&metadata_fields=items_total`
+        );
+
+        // Fallback via @search se a pasta não retornar items
+        if (!data.items?.length) {
+          data = await searchSetorItems(setorId, {
+            b_size: 50,
+            sort_on: 'modified',
+            sort_order: 'descending',
+          });
+        }
+
+        if (cancelled) return;
+
+        const items = (data.items || []).map((item) => mapItemToEdital(item, setorId));
+
+        setState({
+          id: setorId,
+          title: data.title || setorTitles[setorId] || setorId,
+          description: data.description || '',
+          editais: items,
+          isLoading: false,
+          error: null,
+          setorId,
+        });
+      } catch (err) {
+        if (cancelled) return;
+        console.error('Erro ao carregar categoria:', err);
+        setState({
+          title: setorTitles[setorId] || setorId,
+          editais: [],
+          isLoading: false,
+          error: 'Não foi possível carregar os editais deste setor.',
+          setorId,
+        });
+      }
     };
 
-    // Determine the category key to use
-    let categoryKey: keyof typeof categoryData;
-    
-    if (category && category in categoryData) {
-      categoryKey = category as keyof typeof categoryData;
-    } else if (pathCategory && routeToCategoryMap[pathCategory]) {
-      categoryKey = routeToCategoryMap[pathCategory];
-    } else {
-      categoryKey = 'graduacao'; // Default fallback
-    }
-    
-    setCurrentCategory(categoryData[categoryKey]);
-    
-    // Scroll to top when category changes
+    load();
     window.scrollTo(0, 0);
-    
-    console.log('Category changed to:', categoryKey, categoryData[categoryKey].title);
-  }, [category, location.pathname]);
 
-  return currentCategory;
+    return () => {
+      cancelled = true;
+    };
+  }, [category, proReitoriaId, location.pathname, setorOverride]);
+
+  return state;
 };

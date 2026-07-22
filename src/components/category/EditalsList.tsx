@@ -67,11 +67,15 @@ const EditalsList: React.FC<EditalsListProps> = ({ editais }) => {
         case 'title-desc':
           return b.title.localeCompare(a.title);
         case 'date-newest':
-          // Aqui normalmente ordenaríamos por data, mas como nossos dados de mock não têm datas,
-          // usaremos o ID como proxy (assumindo que IDs mais altos são mais recentes)
-          return parseInt(b.id) - parseInt(a.id);
+          return (
+            new Date(b.modified || b.effective || 0).getTime() -
+            new Date(a.modified || a.effective || 0).getTime()
+          );
         case 'date-oldest':
-          return parseInt(a.id) - parseInt(b.id);
+          return (
+            new Date(a.modified || a.effective || 0).getTime() -
+            new Date(b.modified || b.effective || 0).getTime()
+          );
         default:
           return 0;
       }

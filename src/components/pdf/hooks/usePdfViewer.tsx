@@ -1,7 +1,7 @@
 
 import { useToast } from '@/components/ui/use-toast';
 import { useRef, useState } from 'react';
-import { FitType, getMostVisiblePage, isPloneUrl } from '../utils/pdfUtils';
+import { FitType, getMostVisiblePage } from '../utils/pdfUtils';
 
 /**
  * Interface do estado do visualizador de PDF
@@ -34,16 +34,13 @@ export interface PdfViewerState {
   showSearchResults: boolean;
   showThumbnails: boolean;
   fileUrl: string;
+  downloadUrl: string;
 }
 
 /**
  * Hook personalizado para gerenciar o estado e comportamento do visualizador de PDF
- * @param {string} fileUrl - URL do arquivo PDF a ser exibido
- * @returns {Object} Objeto contendo estado e funções para controlar o visualizador
- * @description Gerencia o estado completo do visualizador de PDF, incluindo carregamento, 
- *              navegação, zoom, rotação, busca e outras funcionalidades.
  */
-export function usePdfViewer(fileUrl: string) {
+export function usePdfViewer(fileUrl: string, downloadUrl?: string) {
   const [state, setState] = useState<PdfViewerState>({
     numPages: null,
     pageNumber: 1,
@@ -58,71 +55,29 @@ export function usePdfViewer(fileUrl: string) {
     showSearchResults: false,
     showThumbnails: true,
     fileUrl,
+    downloadUrl: downloadUrl || fileUrl,
   });
   
   const pdfContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  /**
-   * Atualiza o estado do visualizador de PDF
-   * @param {Partial<PdfViewerState>} newState - Estado parcial a ser atualizado
-   */
   const updateState = (newState: Partial<PdfViewerState>) => {
     setState(prev => ({ ...prev, ...newState }));
   };
 
-  /**
-   * Manipulador para quando o documento é carregado com sucesso
-   * @param {{ numPages: number }} param0 - Objeto contendo o número de páginas
-   */
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    updateState({ numPages, loading: false });
-    
-    // Mostra toast de sucesso se for uma URL do Plone
-    if (isPloneUrl(fileUrl)) {
-      toast({
-        title: "Documento carregado com sucesso",
-        description: `${numPages} páginas disponíveis para visualização.`,
-        duration: 3000,
-      });
-    }
-    
-    // Aplica atributos de dados iniciais após carregamento bem-sucedido
-    setTimeout(() => {
-      if (pdfContainerRef.current) {
-        const pageElements = pdfContainerRef.current.querySelectorAll('.react-pdf__Page');
-        pageElements.forEach((page, index) => {
-          const pageWrapper = page.closest('div');
-          if (pageWrapper) {
-            pageWrapper.setAttribute('data-page-number', String(index + 1));
-          }
-        });
-      }
-    }, 500);
+    updateState({ numPages, loading: false, error: false });
   };
 
-  /**
-   * Manipulador para erros no carregamento do documento
-   * @param {Error} error - Objeto de erro
-   */
   const onDocumentLoadError = (error: Error) => {
     console.error('Erro ao carregar o PDF:', error);
     updateState({ loading: false, error: true });
     
-    // Para URLs do Plone, oferece uma mensagem diferente
-    if (isPloneUrl(fileUrl)) {
-      toast({
-        title: "Erro ao carregar o documento do Plone",
-        description: "Tente abrir o documento em uma nova aba ou baixá-lo diretamente.",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Erro ao carregar o documento",
-        description: "Não foi possível visualizar este PDF. Tente baixá-lo.",
-        variant: "destructive",
-      });
-    }
+    toast({
+      title: "Erro ao carregar o documento",
+      description: "Não foi possível visualizar este PDF. Tente baixá-lo ou abrir em nova aba.",
+      variant: "destructive",
+    });
   };
 
   /**

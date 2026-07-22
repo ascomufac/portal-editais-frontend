@@ -1,11 +1,11 @@
 
+/* CSS do react-pdf — @import precisa vir antes de qualquer outra regra */
+@import url('https://cdn.jsdelivr.net/npm/react-pdf@7.7.0/dist/Page/TextLayer.css');
+@import url('https://cdn.jsdelivr.net/npm/react-pdf@7.7.0/dist/Page/AnnotationLayer.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Importa o CSS do PDF.js diretamente caso as importações nos componentes não funcionem */
-@import url('https://cdn.jsdelivr.net/npm/react-pdf@7.7.0/dist/Page/TextLayer.css');
-@import url('https://cdn.jsdelivr.net/npm/react-pdf@7.7.0/dist/Page/AnnotationLayer.css');
 
 @layer utilities {
   /* Oculta a barra de rolagem para Chrome, Safari e Opera */
