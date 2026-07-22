@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LayoutDashboard, LogIn, LogOut, User } from 'lucide-react';
+import { LayoutDashboard, LogIn, LogOut, Star, User } from 'lucide-react';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -19,7 +19,18 @@ const AuthMenu: React.FC = () => {
   const router = useRouter();
 
   if (isLoading) {
-    return null;
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled
+        aria-hidden
+        className="shrink-0 gap-1.5 text-white/70 hover:bg-transparent hover:text-white/70"
+      >
+        <User className="h-4 w-4" />
+        <span className="hidden sm:inline">…</span>
+      </Button>
+    );
   }
 
   if (!isAuthenticated || !user) {
@@ -63,6 +74,10 @@ const AuthMenu: React.FC = () => {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => router.push('/favoritos')}>
+          <Star className="mr-2 h-4 w-4" />
+          Favoritos
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push('/admin')}>
           <LayoutDashboard className="mr-2 h-4 w-4" />
           Painel administrativo

@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMenuItems } from '@/hooks/useMenuItems';
 import { cn } from '@/lib/utils';
 import { MenuItem } from '@/services/editalService';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Star } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -260,6 +260,17 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
         exactMatch={true}
       >
         Início
+      </SidebarLink>
+
+      <SidebarLink
+        to="/favoritos"
+        icon={<Star className="h-5 w-5" strokeWidth={1.5} />}
+        onClick={handleDirectLinkClick}
+        closeSidebar={closeSidebar}
+        isCollapsed={isCollapsed}
+        exactMatch={true}
+      >
+        Favoritos
       </SidebarLink>
 
       {isLoading ? (

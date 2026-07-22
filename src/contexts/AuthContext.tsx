@@ -33,9 +33,11 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = useState<AuthUser | null>(() => getCachedUser());
-  const [token, setToken] = useState<string | null>(() => getAccessToken());
-  const [isLoading, setIsLoading] = useState(() => Boolean(getAccessToken()));
+  // Estado inicial idêntico no SSR e no 1º paint do cliente (evita hydration mismatch).
+  // A sessão em sessionStorage só é lida após mount.
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const refreshUser = useCallback(async () => {
     const current = getAccessToken();
@@ -55,14 +57,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const bootstrap = async () => {
       const current = getAccessToken();
       if (!current) {
-        setIsLoading(false);
+        if (!cancelled) {
+          setUser(null);
+          setToken(null);
+          setIsLoading(false);
+        }
         return;
+      }
+
+      // Pinta usuário em cache logo após mount (ainda sem divergir do HTML SSR).
+      const cached = getCachedUser();
+      if (!cancelled && cached) {
+        setUser(cached);
+        setToken(current);
       }
 
       ensureAuthCookies();
 
       try {
-        // Tenta renovar; se falhar, limpa sessão
         const renewed = await renewToken();
         if (!renewed) {
           if (!cancelled) {
