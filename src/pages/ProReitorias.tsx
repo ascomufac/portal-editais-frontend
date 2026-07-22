@@ -1,5 +1,4 @@
 import EditalCard from '@/components/EditalCard';
-import SearchBar from '@/components/SearchBar';
 import CategoryHeader from '@/components/category/CategoryHeader';
 import {
   AssuntosEstudantisIcon,
@@ -110,10 +109,6 @@ const ProReitorias: React.FC = () => {
         variants={containerVariants}
         className="max-w-6xl mx-auto"
       >
-        <motion.div variants={itemVariants} className="mb-6">
-          <SearchBar />
-        </motion.div>
-
         <motion.div variants={itemVariants}>
           <CategoryHeader title="Pró-reitorias" />
 

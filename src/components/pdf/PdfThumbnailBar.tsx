@@ -26,15 +26,15 @@ const PdfThumbnailBar: React.FC<PdfThumbnailBarProps> = ({
   }
 
   return (
-    <div className={`h-full  bg-ufac-lightBlue ${className} w-[120px]`}>
-      <div className="p-3 border-b bg-tr">
-        <h3 className="font-medium text-gray-800 flex items-center text-[10px] text-stone-400">
-          <StickyNote  className="h-4 w-4 mr-2" /> Páginas ({numPages})
+    <div className={`flex h-full w-[100px] flex-col border-r border-blue-100 bg-ufac-lightBlue sm:w-[120px] ${className ?? ''}`}>
+      <div className="border-b border-blue-100/80 p-2 sm:p-3">
+        <h3 className="flex items-center text-[10px] font-medium text-stone-400">
+          <StickyNote className="mr-1.5 h-3.5 w-3.5" /> Páginas ({numPages})
         </h3>
       </div>
       
-      <ScrollArea className="h-[calc(100%-50px)] w-full">
-        <div className="flex flex-col gap-4 p-4 bg-ufac-lightBlue">
+      <ScrollArea className="h-[calc(100%-44px)] w-full">
+        <div className="flex flex-col gap-3 bg-ufac-lightBlue p-2 sm:gap-4 sm:p-3">
           <Document
             file={fileUrl}
             loading={

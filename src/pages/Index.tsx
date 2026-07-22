@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import EditalCard from '@/components/EditalCard';
-import SearchBar from '@/components/SearchBar';
 import UpdatesSection, { Update } from '@/components/UpdatesSection';
-import { useIsMobile } from '@/hooks/use-mobile';
 import MainLayout from '@/layouts/MainLayout';
 import {
   fetchFeaturedEditais,
@@ -46,21 +44,20 @@ const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.1 },
+    transition: { staggerChildren: 0.08 },
   },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 12 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5 },
+    transition: { duration: 0.35 },
   },
 };
 
 const Index: React.FC = () => {
-  const isMobile = useIsMobile();
   const [sortOption, setSortOption] = useState<SortOption>('date-newest');
   const [featured, setFeatured] = useState<EditalItem[]>([]);
   const [updates, setUpdates] = useState<Update[]>([]);
@@ -75,8 +72,8 @@ const Index: React.FC = () => {
       setError(null);
       try {
         const [featuredItems, recentItems] = await Promise.all([
-          fetchFeaturedEditais(6),
-          fetchRecentUpdates(8),
+          fetchFeaturedEditais(3),
+          fetchRecentUpdates(6),
         ]);
 
         if (cancelled) return;
@@ -87,7 +84,7 @@ const Index: React.FC = () => {
             id: item['@id'],
             title: item.title || 'Sem título',
             date: formatDatePt(item.modified || item.created),
-            description: item.description || item.type_title || item['@type'] || '',
+            description: item.type_title || item['@type'] || '',
             href: toEditalHref(item['@id']),
           }))
         );
@@ -130,61 +127,67 @@ const Index: React.FC = () => {
   }, [featured, sortOption]);
 
   return (
-    <MainLayout>
+    <MainLayout className="flex-1 overflow-hidden p-3 sm:p-4 md:p-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       <motion.div
         initial="hidden"
         animate="visible"
         variants={containerVariants}
-        className="max-w-6xl mx-auto"
+        className="mx-auto flex max-w-6xl flex-col gap-3 sm:gap-4 h-[calc(100dvh-3.5rem-1.5rem)] sm:h-[calc(100dvh-4rem-2rem)] md:h-[calc(100dvh-4rem-3rem)]"
       >
-        <motion.div variants={itemVariants} className="mb-8">
-          <SearchBar />
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Editais em destaque</h2>
-
-          <FilterToolbar
-            sortOption={sortOption}
-            onSortChange={setSortOption}
-            className="mb-4"
-          />
+        <motion.div variants={itemVariants} className="shrink-0">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 sm:mb-3">
+            <h2 className="text-lg font-semibold text-gray-900 sm:text-xl">
+              Editais em destaque
+            </h2>
+            <FilterToolbar
+              sortOption={sortOption}
+              onSortChange={setSortOption}
+              className="mb-0"
+            />
+          </div>
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-16 text-gray-500 gap-2">
+            <div className="flex items-center justify-center gap-2 py-10 text-gray-500">
               <Loader2 className="h-5 w-5 animate-spin" />
               Carregando editais...
             </div>
           ) : error ? (
-            <div className="text-center p-8 bg-white rounded-lg shadow-sm text-red-600">
+            <div className="rounded-lg bg-white p-6 text-center text-red-600 shadow-sm">
               {error}
             </div>
           ) : (
-            <div
-              className={`grid gap-4 sm:gap-6 ${
-                isMobile ? 'grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
-              }`}
-            >
+            <div className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-1 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:pb-0 lg:grid-cols-3">
               {sortedEditals.length > 0 ? (
                 sortedEditals.map((edital) => {
-                  const { date, hour } = formatCardDate(edital.created || edital.modified);
+                  const { date, hour } = formatCardDate(
+                    edital.created || edital.modified
+                  );
                   return (
                     <motion.div
                       key={edital['@id']}
                       variants={itemVariants}
-                      className={isMobile ? 'col-span-1' : ''}
+                      className="w-[min(85vw,20rem)] shrink-0 snap-start sm:w-auto"
                     >
                       <EditalCard
+                        compact
                         title={edital.title}
-                        description={edital.description || ''}
+                        description=""
                         icon={
                           edital['@type'] === 'Folder' ? (
-                            <Folder strokeWidth={1} className="h-8 w-8 text-ufac-blue" />
+                            <Folder
+                              strokeWidth={1.5}
+                              className="h-5 w-5 text-ufac-blue"
+                            />
                           ) : (
-                            <FileText strokeWidth={1} className="h-8 w-8 text-blue-600" />
+                            <FileText
+                              strokeWidth={1.5}
+                              className="h-5 w-5 text-blue-600"
+                            />
                           )
                         }
-                        color={edital['@type'] === 'Folder' ? 'bg-blue-50' : 'bg-red-50'}
+                        color={
+                          edital['@type'] === 'Folder' ? 'bg-blue-50' : 'bg-red-50'
+                        }
                         href={toEditalHref(edital['@id'])}
                         date={date}
                         hour={hour}
@@ -196,9 +199,9 @@ const Index: React.FC = () => {
               ) : (
                 <motion.div
                   variants={itemVariants}
-                  className="text-center p-6 sm:p-12 bg-white rounded-lg shadow-sm col-span-full"
+                  className="col-span-full w-full rounded-lg bg-white p-8 text-center shadow-sm"
                 >
-                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <FileText className="mx-auto mb-3 h-10 w-10 text-gray-400" />
                   <p className="text-gray-600">Nenhum edital encontrado.</p>
                 </motion.div>
               )}
@@ -206,8 +209,8 @@ const Index: React.FC = () => {
           )}
         </motion.div>
 
-        <motion.div variants={itemVariants}>
-          <UpdatesSection updates={updates} isLoading={isLoading} />
+        <motion.div variants={itemVariants} className="flex min-h-0 flex-1 flex-col">
+          <UpdatesSection updates={updates} isLoading={isLoading} compact />
         </motion.div>
       </motion.div>
     </MainLayout>

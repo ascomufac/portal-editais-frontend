@@ -1,8 +1,11 @@
 import Sidebar from '@/components/Sidebar';
+import SearchBar from '@/components/SearchBar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn, getSidebarCollapsedState, toggleSidebarCookie } from '@/lib/utils';
 import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { Menu, Search, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -37,59 +40,38 @@ const UfacLogo: React.FC<UfacLogoProps> = ({ className }) => (
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, className }) => {
   const isMobile = useIsMobile();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() =>
+    typeof window === 'undefined' ? true : window.innerWidth >= 768
+  );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getSidebarCollapsedState());
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const location = useLocation();
-  const [displayTitle, setDisplayTitle] = useState('');
-
-  const getPageTitle = () => {
-    if (pageTitle) return pageTitle;
-    
-    const path = location.pathname;
-    switch(true) {
-      case path === '/':
-        return '';
-      case path.includes('graduacao'):
-        return 'Graduação';
-      case path.includes('pos-graduacao'):
-        return 'Pesquisa e Pós-graduação';
-      case path.includes('extensao'):
-        return 'Extensão e Cultura';
-      case path.includes('estudantis'):
-        return 'Assuntos Estudantis';
-      case path.includes('pessoas'):
-        return 'Gestão de Pessoas';
-      case path.includes('idiomas'):
-        return 'Centro de Idiomas';
-      case path.includes('colegio'):
-        return 'Colégio de Aplicação';
-      case path.includes('resultados-busca'):
-        return 'Resultados da Busca';
-      case path.includes('visualizar-pdf'):
-        return 'Visualizar de Pdf';
-      default:
-        return '';
-    }
-  };
-
-  useEffect(() => {
-    const title = getPageTitle();
-    setDisplayTitle(title);
-  }, [location.pathname, pageTitle]);
 
   useEffect(() => {
     setIsSidebarOpen(!isMobile);
   }, [isMobile]);
 
+  useEffect(() => {
+    setMobileSearchOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isMobile || !isSidebarOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isMobile, isSidebarOpen]);
+
   const toggleCollapsed = () => {
     const newState = !isSidebarCollapsed;
     setIsSidebarCollapsed(newState);
     toggleSidebarCookie(newState);
-    console.log('Toggled sidebar collapsed state to:', newState);
   };
 
   const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
+    setIsSidebarOpen((open) => !open);
   };
 
   const closeSidebar = () => {
@@ -99,32 +81,90 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, className 
   };
 
   return (
-    <div className={"min-h-screen flex flex-col bg-ufac-background"}>
-      <div className="fixed top-0 left-0 right-0 z-50">
-        <NavLink className={cn("bg-ufac-blue h-16 flex items-center px-6", isMobile && 'justify-center')}
-          to={'/'}>
-          <UfacLogo className="h-6 w-auto" />
-        </NavLink>
+    <div className="flex min-h-screen flex-col bg-ufac-background supports-[height:100dvh]:min-h-dvh">
+      <div className="fixed top-0 left-0 right-0 z-50 pt-[env(safe-area-inset-top)]">
+        <header className="relative flex h-14 sm:h-16 items-center gap-2 sm:gap-3 bg-ufac-blue px-2 sm:px-6">
+          {isMobile && mobileSearchOpen ? (
+            <div className="flex min-w-0 flex-1 items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setMobileSearchOpen(false)}
+                className="shrink-0 text-white hover:bg-white/10 hover:text-white"
+                aria-label="Fechar busca"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+              <div className="min-w-0 flex-1">
+                <SearchBar compact autoFocus onRequestClose={() => setMobileSearchOpen(false)} />
+              </div>
+            </div>
+          ) : (
+            <>
+              {isMobile && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleSidebar}
+                  className="shrink-0 text-white hover:bg-white/10 hover:text-white"
+                  aria-label={isSidebarOpen ? 'Fechar menu' : 'Abrir menu'}
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              )}
+
+              <NavLink to="/" className="shrink-0" aria-label="Página inicial">
+                <UfacLogo className="h-5 sm:h-6 w-auto max-w-[110px] sm:max-w-none" />
+              </NavLink>
+
+              {isMobile ? (
+                <div className="ml-auto shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setMobileSearchOpen(true)}
+                    className="text-white hover:bg-white/10 hover:text-white"
+                    aria-label="Pesquisar edital"
+                  >
+                    <Search className="h-5 w-5" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="min-w-0 flex-1 flex justify-end md:justify-center px-2 sm:px-4">
+                  <SearchBar compact />
+                </div>
+              )}
+            </>
+          )}
+        </header>
       </div>
 
-      <div className="flex pt-16">
-        <Sidebar 
-          isOpen={isSidebarOpen} 
-          toggleSidebar={toggleSidebar} 
+      <div className="flex min-h-0 flex-1 pt-14 sm:pt-16">
+        <Sidebar
+          isOpen={isSidebarOpen}
+          toggleSidebar={toggleSidebar}
           closeSidebar={closeSidebar}
           isCollapsed={isSidebarCollapsed}
           toggleCollapsed={toggleCollapsed}
         />
-        
-        <div className={cn(
-          "flex-1 flex flex-col transition-all duration-300 ease-in-out",
-          !isMobile && isSidebarOpen 
-            ? isSidebarCollapsed
-              ? "ml-16" // Collapsed sidebar width
-              : "ml-80" // Full sidebar width
-            : "ml-0"
-        )}>
-          <main className={cn("", className ? className : 'flex-1  md:p-8 p-4 sm:p-6 overflow-y-auto')}>
+
+        <div
+          className={cn(
+            'flex min-h-0 flex-1 flex-col transition-all duration-300 ease-in-out',
+            !isMobile && isSidebarOpen
+              ? isSidebarCollapsed
+                ? 'ml-16'
+                : 'ml-80'
+              : 'ml-0'
+          )}
+        >
+          <main
+            className={cn(
+              className
+                ? className
+                : 'flex-1 overflow-y-auto p-3 sm:p-6 md:p-8 pb-[max(1rem,env(safe-area-inset-bottom))]'
+            )}
+          >
             {children}
           </main>
         </div>

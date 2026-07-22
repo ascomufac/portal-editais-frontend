@@ -37,6 +37,24 @@ interface DateRangeFilterProps {
   onChange: (value: DateRangeFilterValue) => void;
   onClear?: () => void;
   className?: string;
+  /** Oculta o rótulo externo (útil quando embutido na barra de filtros) */
+  showLabel?: boolean;
+  /** Remove o fundo próprio para fundir com a toolbar pai */
+  embedded?: boolean;
+  /** Controles menores para barra compacta */
+  compact?: boolean;
+}
+
+interface MaterialDatePickerProps {
+  label: string;
+  value: string;
+  onChange: (isoDate: string) => void;
+  /** Ao mudar o mês com as setas, aplica filtro do mês visível */
+  onMonthNavigate?: (month: Date) => void;
+  minDate?: string;
+  maxDate?: string;
+  placeholder?: string;
+  compact?: boolean;
 }
 
 const FIELD_OPTIONS: Array<{
@@ -57,17 +75,6 @@ const parseIsoDate = (value?: string): Date | undefined => {
   return isValid(parsed) ? parsed : undefined;
 };
 
-interface MaterialDatePickerProps {
-  label: string;
-  value: string;
-  onChange: (isoDate: string) => void;
-  /** Ao mudar o mês com as setas, aplica filtro do mês visível */
-  onMonthNavigate?: (month: Date) => void;
-  minDate?: string;
-  maxDate?: string;
-  placeholder?: string;
-}
-
 /**
  * Seletor de data estilo Material Design (Popover + Calendar), sem input nativo.
  */
@@ -79,6 +86,7 @@ const MaterialDatePicker: React.FC<MaterialDatePickerProps> = ({
   minDate,
   maxDate,
   placeholder = 'Selecionar',
+  compact = false,
 }) => {
   const [open, setOpen] = useState(false);
   const selected = parseIsoDate(value);
@@ -94,36 +102,42 @@ const MaterialDatePicker: React.FC<MaterialDatePickerProps> = ({
 
   const handleMonthChange = (nextMonth: Date) => {
     setMonth(nextMonth);
-    // Filtra imediatamente ao navegar com as setas (mês inteiro)
     onMonthNavigate?.(nextMonth);
   };
 
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="px-1 text-xs text-gray-400">{label}</span>
+    <div className="flex items-center gap-1">
+      {!compact && <span className="px-1 text-xs text-gray-400">{label}</span>}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
             type="button"
             variant="ghost"
             className={cn(
-              'h-10 min-w-[168px] justify-start gap-2 rounded-xl border-0 bg-ufac-lightBlue/50 px-3 font-medium text-ufac-blue shadow-sm transition hover:bg-ufac-lightBlue hover:text-ufac-blue',
+              'justify-start gap-1.5 border-0 bg-ufac-lightBlue/50 font-medium text-ufac-blue shadow-none transition hover:bg-ufac-lightBlue hover:text-ufac-blue',
+              compact
+                ? 'h-8 min-w-[104px] sm:min-w-[128px] rounded-lg px-2 text-sm'
+                : 'h-10 min-w-[168px] rounded-xl px-3 text-sm',
               !selected && 'text-ufac-blue/60'
             )}
             aria-label={`Data ${label.toLowerCase()}`}
+            title={label}
           >
-            <CalendarIcon className="h-4 w-4 shrink-0 opacity-80" />
-            <span className="text-sm">
+            <CalendarIcon className={cn('shrink-0 opacity-80', compact ? 'h-4 w-4' : 'h-4 w-4')} />
+            <span>
               {selected
                 ? format(selected, 'dd/MM/yyyy', { locale: ptBR })
-                : placeholder}
+                : compact
+                  ? label
+                  : placeholder}
             </span>
           </Button>
         </PopoverTrigger>
         <PopoverContent
           align="start"
           sideOffset={8}
-          className="w-auto overflow-hidden rounded-2xl border-0 p-0 shadow-[0_8px_28px_rgba(41,77,239,0.18)]"
+          collisionPadding={12}
+          className="w-auto max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border-0 p-0 shadow-[0_8px_28px_rgba(41,77,239,0.18)]"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="bg-ufac-blue px-5 pb-4 pt-5 text-white">
@@ -229,10 +243,12 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
   onChange,
   onClear,
   className = '',
+  showLabel = true,
+  embedded = false,
+  compact = false,
 }) => {
   const hasRange = Boolean(value.from || value.to);
 
-  /** Ao mudar o mês nas setas, filtra o mês inteiro visível */
   const applyVisibleMonth = (month: Date) => {
     onChange({
       ...value,
@@ -242,18 +258,31 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
   };
 
   return (
-    <div className={className}>
-      <label className="mb-1 block text-xs font-medium text-gray-500">
-        Filtrar por data
-      </label>
-      <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white p-1">
+    <div className={cn(embedded ? 'contents' : '', className)}>
+      {showLabel && (
+        <label className="mb-1 block text-xs font-medium text-gray-500">
+          Filtrar por data
+        </label>
+      )}
+      <div
+        className={cn(
+          'flex flex-nowrap items-center',
+          compact ? 'gap-1.5' : 'gap-2',
+          !embedded && 'rounded-xl bg-white p-1'
+        )}
+      >
         <Select
           value={value.field}
           onValueChange={(field) =>
             onChange({ ...value, field: field as DateFilterField })
           }
         >
-          <SelectTrigger className="h-10 w-[160px] rounded-xl border-none text-ufac-blue">
+          <SelectTrigger
+            className={cn(
+              'border-none bg-ufac-lightBlue/50 text-ufac-blue shadow-none focus:ring-0',
+              compact ? 'h-8 w-[108px] sm:w-[132px] rounded-lg px-2 text-sm' : 'h-10 w-[160px] rounded-xl bg-white'
+            )}
+          >
             <SelectValue placeholder="Campo" />
           </SelectTrigger>
           <SelectContent className="rounded-xl border-none bg-white text-ufac-blue">
@@ -261,10 +290,10 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
               <SelectItem
                 key={opt}
                 value={opt}
-                className="h-10 rounded-lg data-[highlighted]:bg-ufac-lightBlue data-[highlighted]:text-ufac-blue"
+                className="h-8 rounded-lg text-xs data-[highlighted]:bg-ufac-lightBlue data-[highlighted]:text-ufac-blue"
               >
                 <span className="flex items-center gap-2">
-                  <Icon className="h-4 w-4 text-ufac-blue" />
+                  <Icon className="h-3.5 w-3.5 text-ufac-blue" />
                   {label}
                 </span>
               </SelectItem>
@@ -277,6 +306,7 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
           value={value.from}
           maxDate={value.to || undefined}
           placeholder="dd/mm/aaaa"
+          compact={compact}
           onChange={(from) => onChange({ ...value, from })}
           onMonthNavigate={applyVisibleMonth}
         />
@@ -286,6 +316,7 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
           value={value.to}
           minDate={value.from || undefined}
           placeholder="dd/mm/aaaa"
+          compact={compact}
           onChange={(to) => onChange({ ...value, to })}
           onMonthNavigate={applyVisibleMonth}
         />
@@ -295,15 +326,19 @@ const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-10 rounded-xl text-gray-500 hover:bg-ufac-lightBlue hover:text-ufac-blue"
+            className={cn(
+              'text-gray-500 hover:bg-ufac-lightBlue hover:text-ufac-blue',
+              compact ? 'h-8 w-8 rounded-lg p-0' : 'h-10 rounded-xl'
+            )}
             onClick={() => {
               onChange({ ...value, from: '', to: '' });
               onClear?.();
             }}
             aria-label="Limpar filtro de data"
+            title="Limpar"
           >
-            <X className="mr-1 h-4 w-4" />
-            Limpar
+            <X className="h-4 w-4" />
+            {!compact && <span className="ml-1">Limpar</span>}
           </Button>
         )}
       </div>

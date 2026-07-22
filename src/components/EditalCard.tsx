@@ -27,7 +27,7 @@ const getClockIconByHour = (hour: string | undefined) => {
 		return (
 			<Clock1
 				size={16}
-				className='mr-2 ml-3'
+				className='shrink-0'
 			/>
 		);
 	const parsedHour = parseInt(hour.split(':')[0], 10);
@@ -50,7 +50,7 @@ const getClockIconByHour = (hour: string | undefined) => {
 	return (
 		<ClockIcon
 			size={16}
-			className='mr-2 ml-3'
+			className='shrink-0'
 		/>
 	);
 };
@@ -64,6 +64,8 @@ export interface EditalCardProps {
 	date?: string;
 	hour?: string;
 	variant?: 'card' | 'line';
+	/** Cards mais baixos — útil na home para caber destaques + atualizações */
+	compact?: boolean;
 	state?: EditalItem;
 }
 
@@ -77,35 +79,19 @@ const EditalCard: React.FC<EditalCardProps> = ({
 	hour,
 	state,
 	variant = 'card',
+	compact = false,
 }) => {
 	const isMobile = useIsMobile();
-	const containerRef = React.useRef<HTMLAnchorElement>(null);
-	const [cardWidth, setCardWidth] = React.useState<number | null>(null);
 	const displayTitle = title || state?.title || 'Título não disponível';
-
-	React.useEffect(() => {
-		if (variant === 'line') {
-			const updateCardWidth = () => {
-				if (containerRef.current) {
-					const containerWidth = containerRef.current.offsetWidth;
-					setCardWidth(containerWidth - 140);
-				}
-			};
-			updateCardWidth();
-			window.addEventListener('resize', updateCardWidth);
-			return () => window.removeEventListener('resize', updateCardWidth);
-		}
-	}, [variant]);
 
 	if (variant === 'line') {
 		return (
 			<NavLink
-				ref={containerRef}
 				to={href}
 				aria-label={`Abrir ${displayTitle}`}
-				className='border-b py-4 overflow-hidden flex items-center justify-between gap-4 bg-white rounded-3xl p-4 transition-colors hover:bg-slate-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ufac-blue focus-visible:ring-offset-2'
+				className='border-b py-4 overflow-hidden flex items-center justify-between gap-3 sm:gap-4 bg-white rounded-3xl p-3 sm:p-4 transition-colors hover:bg-slate-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ufac-blue focus-visible:ring-offset-2'
 			>
-				<div className='flex items-start gap-4 min-w-0'>
+				<div className='flex items-start gap-3 sm:gap-4 min-w-0'>
 					<div
 						className={cn(
 							'rounded-full flex items-center justify-center flex-shrink-0',
@@ -116,17 +102,10 @@ const EditalCard: React.FC<EditalCardProps> = ({
 						{icon}
 					</div>
 					<div className='flex flex-col min-w-0'>
-						<h3
-							className={cn(
-								'text-base font-semibold text-slate-500',
-								cardWidth &&
-									'truncate overflow-hidden text-ellipsis whitespace-nowrap'
-							)}
-							style={cardWidth ? { maxWidth: `${cardWidth}px` } : {}}
-						>
+						<h3 className='truncate text-base font-semibold text-slate-500'>
 							{displayTitle}
 						</h3>
-						<div className='text-neutral-400 text-xs flex gap-4 mt-1'>
+						<div className='text-neutral-400 text-xs flex flex-wrap gap-x-3 gap-y-1 mt-1'>
 							{date && (
 								<span className='inline-flex items-center gap-1'>
 									<CalendarDays size={14} /> {date}
@@ -154,73 +133,88 @@ const EditalCard: React.FC<EditalCardProps> = ({
 		<NavLink
 			to={href}
 			aria-label={`Abrir ${displayTitle}`}
-			className='group block h-full rounded-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ufac-blue focus-visible:ring-offset-2'
+			className='group block h-full rounded-[28px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ufac-blue focus-visible:ring-offset-2'
 		>
 			<motion.div
-				whileHover={{ y: -8 }}
+				whileHover={isMobile ? undefined : { y: compact ? -4 : -8 }}
 				transition={{ duration: 0.3 }}
-				className='hover:border-ufac-blue-light border-2 border-gray-50 shadow-2xl-ufac-blue-light edital-card bg-white rounded-[32px] shadow-md overflow-hidden h-full cursor-pointer'
+				className={cn(
+					'hover:border-ufac-blue-light border-2 border-gray-50 shadow-2xl-ufac-blue-light edital-card bg-white shadow-md overflow-hidden h-full cursor-pointer',
+					compact ? 'rounded-2xl' : 'rounded-[28px] sm:rounded-[32px]'
+				)}
 			>
-				<div className='flex flex-col h-full p-4 sm:p-6 md:p-8'>
-					<div className='flex justify-between'>
+				<div
+					className={cn(
+						'flex flex-col h-full',
+						compact ? 'gap-3 p-3.5 sm:p-4' : 'p-4 sm:p-6 md:p-8'
+					)}
+				>
+					<div className='flex items-start justify-between gap-2'>
 						<div
 							className={cn(
-								'flex items-center justify-center rounded-full mb-auto',
+								'flex items-center justify-center rounded-full shrink-0',
 								color,
-								isMobile
-									? 'w-12 h-12 min-w-[40px] min-h-[40px]'
-									: 'w-14 h-14 min-w-[48px] min-h-[48px]'
+								compact
+									? 'h-10 w-10'
+									: isMobile
+										? 'w-12 h-12 min-w-[40px] min-h-[40px]'
+										: 'w-14 h-14 min-w-[48px] min-h-[48px]'
 							)}
 						>
 							{icon}
 						</div>
 					</div>
 
-					<div className='flex-grow min-h-[8px] sm:min-h-[16px]' />
+					{!compact && (
+						<div className='flex-grow min-h-[8px] sm:min-h-[16px]' />
+					)}
 
-					<div className='text-neutral-400 text-sm flex items-center'>
+					<div className='text-neutral-400 text-sm flex flex-wrap items-center gap-x-3 gap-y-1'>
 						{date && (
-							<div className='flex items-center text-xs'>
-								<CalendarDays size={16} className='mr-2' />
+							<div className='flex items-center gap-1.5 text-xs'>
+								<CalendarDays size={compact ? 14 : 16} className='shrink-0' />
 								{date}
 							</div>
 						)}
 						{hour && (
-							<div className='flex items-center'>
+							<div className='flex items-center gap-1.5 text-xs'>
 								{getClockIconByHour(hour)}
 								{hour}
 							</div>
 						)}
 					</div>
 
-					<div className='mt-auto'>
+					<div className={cn(compact ? 'mt-1' : 'mt-auto')}>
 						<h3
 							className={cn(
-								'font-semibold text-ufac-blue-light mb-2 line-clamp-2',
-								isMobile ? 'text-md' : 'text-lg'
+								'font-semibold text-ufac-blue-light line-clamp-2',
+								compact ? 'mb-0 text-sm sm:text-base' : 'mb-2 text-base sm:text-lg'
 							)}
 						>
 							{displayTitle}
 						</h3>
-						<div className='flex justify-between items-end gap-4'>
-							<p
-								className={cn(
-									'text-gray-700 hyphens-auto break-words line-clamp-4',
-									'text-sm'
-								)}
-							>
-								{description}
-							</p>
+						<div className='flex justify-between items-end gap-3'>
+							{!compact && description ? (
+								<p className='text-sm text-gray-700 hyphens-auto break-words line-clamp-3 sm:line-clamp-4'>
+									{description}
+								</p>
+							) : (
+								<span className='flex-1' />
+							)}
 							<span
 								className={cn(
 									'rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 self-end transition-colors group-hover:bg-ufac-lightBlue',
-									isMobile ? 'w-10 h-10' : 'w-12 h-12'
+									compact ? 'h-8 w-8' : isMobile ? 'w-10 h-10' : 'w-12 h-12'
 								)}
 								aria-hidden='true'
 							>
 								<ArrowRight
 									className={
-										isMobile ? 'h-5 w-5 text-gray-900' : 'h-6 w-6 text-gray-900'
+										compact
+											? 'h-4 w-4 text-gray-900'
+											: isMobile
+												? 'h-5 w-5 text-gray-900'
+												: 'h-6 w-6 text-gray-900'
 									}
 								/>
 							</span>

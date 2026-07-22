@@ -173,7 +173,7 @@ export const getPdfUrl = async (urlOrJson: string | object): Promise<string> => 
   throw new Error('Não foi possível extrair URL do PDF da resposta do Plone');
 };
 
-export type FitType = 'width' | 'height' | 'page';
+export type FitType = 'width' | 'height' | 'page' | 'zoom';
 
 export interface ResolvedPdfSource {
   /** Fonte para o react-pdf (blob URL same-origin) */

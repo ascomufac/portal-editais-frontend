@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import MainLayout from '@/layouts/MainLayout';
-import SearchBar from '@/components/SearchBar';
 import { useCategory } from '@/hooks/useCategory';
 import EditalsList from '@/components/category/EditalsList';
 import CategoryHeader from '@/components/category/CategoryHeader';
@@ -41,10 +40,6 @@ const CategoryPage: React.FC = () => {
         variants={containerVariants}
         className="max-w-6xl mx-auto"
       >
-        <motion.div variants={itemVariants} className="mb-6 sm:mb-8">
-          <SearchBar />
-        </motion.div>
-
         <motion.div variants={itemVariants}>
           <CategoryHeader title={currentCategory.title || 'Carregando...'} />
         </motion.div>

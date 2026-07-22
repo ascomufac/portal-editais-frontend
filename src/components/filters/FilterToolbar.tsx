@@ -14,6 +14,7 @@ import {
   CalendarDays
 } from 'lucide-react';
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 /**
  * Tipo para as opções de ordenação
@@ -61,14 +62,14 @@ const FilterToolbar: React.FC<FilterToolbarProps> = ({
   className
 }) => {
   return (
-    <div className={`flex flex-row justify-end pa gap-3 mb-4 ${className}`}>
-      <div className="flex gap-2">
+    <div className={cn('mb-4 flex w-full flex-wrap items-center justify-end gap-2 sm:gap-3', className)}>
+      <div className="flex w-full flex-wrap justify-end gap-2 sm:w-auto">
         {showCategoryFilter && categories.length > 0 && (
           <Select
             value={selectedCategory}
             onValueChange={onCategorySelect}
           >
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent>
@@ -82,7 +83,7 @@ const FilterToolbar: React.FC<FilterToolbarProps> = ({
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="gap-2 rounded-[24px] text-ufac-blue">
+            <Button variant="outline" className="w-full gap-2 rounded-[24px] text-ufac-blue sm:w-auto">
               {sortOption === 'title-asc' && <ArrowUpAZ className=" stroke-ufac-blue h-4 w-4 mr-2" />}
               {sortOption === 'title-desc' && <ArrowDownAZ className=" stroke-ufac-blue h-4 w-4 mr-2" />}
               {sortOption === 'date-newest' && <CalendarClock className=" stroke-ufac-blue h-4 w-4 mr-2" />}

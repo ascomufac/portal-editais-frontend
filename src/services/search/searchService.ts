@@ -1,7 +1,23 @@
+import { BASE_URL } from '@/services/editalService';
 import { SearchResult, SearchSection, sectionPathMap } from './types';
 import { extractFileNameFromUrl } from './utils';
 
-const BASE_URL = 'https://www3.ufac.br/++api++';
+/**
+ * Plone/ZCTextIndex indexa por palavra inteira.
+ * Sem curinga, "edufa" não encontra "edufac"; com "edufa*" encontra.
+ */
+const toPloneSearchableText = (query: string): string => {
+  const trimmed = query.trim();
+  if (!trimmed) return trimmed;
+  // Respeita curingas explícitos do usuário
+  if (/[*?]/.test(trimmed)) return trimmed;
+
+  return trimmed
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((term) => (term.length >= 3 ? `${term}*` : term))
+    .join(' ');
+};
 
 /**
  * Busca documentos na API Plone da UFAC
@@ -15,7 +31,7 @@ export const searchDocuments = async (
   }
 
   const searchParams = new URLSearchParams();
-  searchParams.append('SearchableText', query);
+  searchParams.append('SearchableText', toPloneSearchableText(query));
   searchParams.append('sort_on', 'created');
   searchParams.append('sort_order', 'descending');
   searchParams.append('metadata_fields', 'created');
