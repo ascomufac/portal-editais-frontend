@@ -17,6 +17,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AdminFilePreviewPanel from '@/components/admin/AdminFilePreviewPanel';
@@ -84,9 +91,11 @@ import {
   Upload,
   Workflow,
 } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
+
+const PAGE_SIZE = 60;
 
 const canViewContent = (item: PloneContentItem) => {
   const type = resolveContentType(item);
@@ -238,10 +247,12 @@ const ContentBrowser: React.FC = () => {
 
   const [parent, setParent] = useState<PloneContentItem | null>(null);
   const [items, setItems] = useState<PloneContentItem[]>([]);
+  const [itemsTotal, setItemsTotal] = useState(0);
   const [crumbs, setCrumbs] = useState<BreadcrumbItem[]>([]);
   const [types, setTypes] = useState<PloneTypeInfo[]>([]);
   const [workflow, setWorkflow] = useState<PloneWorkflowInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [editorOpen, setEditorOpen] = useState(false);
@@ -274,43 +285,94 @@ const ContentBrowser: React.FC = () => {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [previewItem, setPreviewItem] = useState<PloneContentItem | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const listing = await listFolderContents(path);
-      // Arquivos/páginas não são navegáveis — volta para a pasta pai.
-      if (listing.parent && !isFolderishContent(listing.parent)) {
-        const parentPath = parentPlonePath(path);
-        toast.message('Este item não é uma pasta. Abrindo a pasta pai.');
-        navigate(adminContentHref(parentPath), { replace: true });
-        return;
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const fetchLock = useRef(false);
+  const metaLoadedForPath = useRef<string | null>(null);
+
+  const listOptions = useMemo(
+    () => ({
+      portal_type: typeFilter === 'all' ? undefined : typeFilter,
+      review_state: stateFilter === 'all' ? undefined : stateFilter,
+      SearchableText: query.trim() || undefined,
+    }),
+    [typeFilter, stateFilter, query]
+  );
+
+  const loadPage = useCallback(
+    async (bStart: number, append: boolean) => {
+      if (fetchLock.current) return;
+      fetchLock.current = true;
+      if (append) setLoadingMore(true);
+      else {
+        setLoading(true);
+        setError(null);
       }
-      const [breadcrumbs, addable, wf] = await Promise.all([
-        getBreadcrumbs(path),
-        getAddableTypes(path),
-        getWorkflow(path).catch(() => null),
-      ]);
-      setParent(listing.parent);
-      setItems(listing.items);
-      setCrumbs(breadcrumbs);
-      setTypes(addable);
-      setWorkflow(wf);
-    } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Não foi possível carregar o conteúdo.';
-      setError(message);
-      setParent(null);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [path, navigate]);
+      try {
+        const listing = await listFolderContents(path, {
+          b_size: PAGE_SIZE,
+          b_start: bStart,
+          ...listOptions,
+        });
+
+        if (listing.parent && !isFolderishContent(listing.parent)) {
+          const parentPath = parentPlonePath(path);
+          toast.message('Este item não é uma pasta. Abrindo a pasta pai.');
+          navigate(adminContentHref(parentPath), { replace: true });
+          return;
+        }
+
+        setParent(listing.parent);
+        setItemsTotal(listing.items_total);
+        setItems((prev) => {
+          if (!append) return listing.items;
+          const seen = new Set(prev.map((i) => i['@id']));
+          const extra = listing.items.filter((i) => !seen.has(i['@id']));
+          return [...prev, ...extra];
+        });
+
+        if (!append || metaLoadedForPath.current !== path) {
+          const [breadcrumbs, addable, wf] = await Promise.all([
+            getBreadcrumbs(path),
+            getAddableTypes(path),
+            getWorkflow(path).catch(() => null),
+          ]);
+          setCrumbs(breadcrumbs);
+          setTypes(addable);
+          setWorkflow(wf);
+          metaLoadedForPath.current = path;
+        }
+      } catch (err) {
+        if (!append) {
+          const message =
+            err instanceof ApiError
+              ? err.message
+              : 'Não foi possível carregar o conteúdo.';
+          setError(message);
+          setParent(null);
+          setItems([]);
+          setItemsTotal(0);
+        }
+      } finally {
+        fetchLock.current = false;
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [path, navigate, listOptions]
+  );
+
+  const load = useCallback(async () => {
+    setItems([]);
+    setItemsTotal(0);
+    await loadPage(0, false);
+  }, [loadPage]);
 
   useEffect(() => {
-    load();
     setSelectedId(null);
     setSelected(new Set());
+    setPreviewItem(null);
+    metaLoadedForPath.current = null;
+    void load();
   }, [load]);
 
   useEffect(() => {
@@ -318,29 +380,41 @@ const ContentBrowser: React.FC = () => {
     setQuery(q);
   }, [searchParams]);
 
+  const hasMore = items.length < itemsTotal;
+
+  const loadMore = useCallback(() => {
+    if (!hasMore || loading || loadingMore || fetchLock.current) return;
+    void loadPage(items.length, true);
+  }, [hasMore, loading, loadingMore, loadPage, items.length]);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || loading || items.length === 0) return;
+
+    let root: Element | null = null;
+    let parentEl: HTMLElement | null = node.parentElement;
+    while (parentEl) {
+      const { overflowY } = getComputedStyle(parentEl);
+      if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') {
+        root = parentEl;
+        break;
+      }
+      parentEl = parentEl.parentElement;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) loadMore();
+      },
+      { root, rootMargin: '320px 0px', threshold: 0 }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [loadMore, loading, items.length, viewMode]);
+
   const filteredItems = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let list = items;
-
-    if (typeFilter !== 'all') {
-      list = list.filter((item) => item['@type'] === typeFilter);
-    }
-
-    if (stateFilter !== 'all') {
-      list = list.filter((item) => getReviewState(item) === stateFilter);
-    }
-
-    if (q) {
-      list = list.filter((item) => {
-        const name = getContentDisplayName(item).toLowerCase();
-        return (
-          name.includes(q) ||
-          (item.Creator || '').toLowerCase().includes(q)
-        );
-      });
-    }
-
-    return [...list].sort((a, b) => {
+    // Filtros tipo/visibilidade/busca vão no @search; aqui só ordena o lote carregado.
+    return [...items].sort((a, b) => {
       let cmp = 0;
       if (sortKey === 'modified') {
         cmp = (a.modified || '').localeCompare(b.modified || '');
@@ -365,7 +439,7 @@ const ContentBrowser: React.FC = () => {
       }
       return sortDir === 'asc' ? cmp : -cmp;
     });
-  }, [items, query, typeFilter, stateFilter, sortKey, sortDir]);
+  }, [items, sortKey, sortDir]);
 
   const handleColumnSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -394,10 +468,15 @@ const ContentBrowser: React.FC = () => {
 
   useEffect(() => {
     const state = location.state as
-      | { intent?: AdminCreateIntent; focusPath?: string }
+      | {
+          intent?: AdminCreateIntent;
+          focusPath?: string;
+          openAction?: 'preview' | 'edit' | 'share' | 'history';
+        }
       | null;
     const intent = state?.intent;
     const focusPath = state?.focusPath;
+    const openAction = state?.openAction;
 
     if (intent) {
       if (intent.kind === 'upload') {
@@ -422,6 +501,32 @@ const ContentBrowser: React.FC = () => {
         );
         el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       }, 50);
+
+      if (openAction === 'edit') {
+        setEditorMode('edit');
+        setEditorType(target['@type']);
+        setEditingItem(target);
+        setEditorOpen(true);
+      } else if (openAction === 'share') {
+        setSharingPath(toPlonePath(target['@id']));
+        setSharingOpen(true);
+      } else if (openAction === 'history') {
+        setHistoryPath(toPlonePath(target['@id']));
+        setHistoryTitle(getContentDisplayName(target));
+        setHistoryOpen(true);
+      } else if (openAction === 'preview') {
+        const type = resolveContentType(target);
+        if (type === 'File' || type === 'Image') {
+          setPreviewItem(target);
+        } else if (type === 'Link') {
+          const url =
+            (typeof target.remoteUrl === 'string' && target.remoteUrl) ||
+            target['@id'];
+          if (url) window.open(url, '_blank', 'noopener,noreferrer');
+        } else if (type === 'Document') {
+          window.open(target['@id'], '_blank', 'noopener,noreferrer');
+        }
+      }
     }
     navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -709,129 +814,156 @@ const ContentBrowser: React.FC = () => {
 
   const primarySelected = selectedItems[0] || null;
 
+  type MenuItemComp = typeof DropdownMenuItem | typeof ContextMenuItem;
+  type MenuSepComp = typeof DropdownMenuSeparator | typeof ContextMenuSeparator;
+
+  const itemMenuItems = (
+    item: PloneContentItem,
+    Item: MenuItemComp,
+    Separator: MenuSepComp
+  ) => (
+    <>
+      {canViewContent(item) && (
+        <Item onClick={() => openView(item)}>
+          <Eye className="mr-2 h-4 w-4" />
+          Visualizar
+        </Item>
+      )}
+      <Item onClick={() => openEdit(item)}>
+        <Pencil className="mr-2 h-4 w-4" />
+        Editar
+      </Item>
+      <Item
+        onClick={() => {
+          setSharingPath(toPlonePath(item['@id']));
+          setSharingOpen(true);
+        }}
+      >
+        <Share2 className="mr-2 h-4 w-4" />
+        Compartilhar
+      </Item>
+      <Item
+        onClick={() => {
+          setHistoryPath(toPlonePath(item['@id']));
+          setHistoryTitle(getContentDisplayName(item));
+          setHistoryOpen(true);
+        }}
+      >
+        <History className="mr-2 h-4 w-4" />
+        Histórico
+      </Item>
+      <Item
+        onClick={() => {
+          setRenameTarget(item);
+          setRenameValue(item.id || '');
+        }}
+      >
+        Renomear (id)
+      </Item>
+      <Item onClick={() => handleCopyHere(item)}>
+        <Copy className="mr-2 h-4 w-4" />
+        Fazer uma cópia
+      </Item>
+      <Item
+        onClick={() => {
+          setMoveTarget(item);
+          setMovePath('');
+        }}
+      >
+        Mover para…
+      </Item>
+      {isUnpublished(item) && (
+        <Item
+          onClick={async () => {
+            try {
+              const done = await publishItem(item);
+              if (done) {
+                toast.success('Item publicado.');
+                await load();
+              } else {
+                toast.message(
+                  'Nenhuma transição de publicação disponível neste item.'
+                );
+              }
+            } catch (err) {
+              toast.error(
+                err instanceof ApiError ? err.message : 'Falha ao publicar.'
+              );
+            }
+          }}
+        >
+          <Workflow className="mr-2 h-4 w-4" />
+          Publicar
+        </Item>
+      )}
+      {isPublished(item) && (
+        <Item
+          onClick={async () => {
+            try {
+              const done = await retractItem(item);
+              if (done) {
+                toast.success('Item tornado privado.');
+                await load();
+              } else {
+                toast.message(
+                  'Nenhuma transição para privado disponível neste item.'
+                );
+              }
+            } catch (err) {
+              toast.error(
+                err instanceof ApiError
+                  ? err.message
+                  : 'Falha ao tornar privado.'
+              );
+            }
+          }}
+        >
+          <EyeOff className="mr-2 h-4 w-4" />
+          Tornar privado
+        </Item>
+      )}
+      <Separator />
+      <Item
+        className="text-red-600 focus:text-red-600"
+        onClick={() => setDeleteTarget(item)}
+      >
+        <Trash2 className="mr-2 h-4 w-4" />
+        Remover
+      </Item>
+    </>
+  );
+
   const itemActions = (item: PloneContentItem) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-full text-slate-500 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+          className="h-9 w-9 rounded-full text-slate-500 opacity-60 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
         >
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52 rounded-xl">
-        {canViewContent(item) && (
-          <DropdownMenuItem onClick={() => openView(item)}>
-            <Eye className="mr-2 h-4 w-4" />
-            Visualizar
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem onClick={() => openEdit(item)}>
-          <Pencil className="mr-2 h-4 w-4" />
-          Editar
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            setSharingPath(toPlonePath(item['@id']));
-            setSharingOpen(true);
-          }}
-        >
-          <Share2 className="mr-2 h-4 w-4" />
-          Compartilhar
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            setHistoryPath(toPlonePath(item['@id']));
-            setHistoryTitle(getContentDisplayName(item));
-            setHistoryOpen(true);
-          }}
-        >
-          <History className="mr-2 h-4 w-4" />
-          Histórico
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            setRenameTarget(item);
-            setRenameValue(item.id || '');
-          }}
-        >
-          Renomear (id)
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleCopyHere(item)}>
-          <Copy className="mr-2 h-4 w-4" />
-          Fazer uma cópia
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => {
-            setMoveTarget(item);
-            setMovePath('');
-          }}
-        >
-          Mover para…
-        </DropdownMenuItem>
-        {isUnpublished(item) && (
-          <DropdownMenuItem
-            onClick={async () => {
-              try {
-                const done = await publishItem(item);
-                if (done) {
-                  toast.success('Item publicado.');
-                  await load();
-                } else {
-                  toast.message(
-                    'Nenhuma transição de publicação disponível neste item.'
-                  );
-                }
-              } catch (err) {
-                toast.error(
-                  err instanceof ApiError
-                    ? err.message
-                    : 'Falha ao publicar.'
-                );
-              }
-            }}
-          >
-            <Workflow className="mr-2 h-4 w-4" />
-            Publicar
-          </DropdownMenuItem>
-        )}
-        {isPublished(item) && (
-          <DropdownMenuItem
-            onClick={async () => {
-              try {
-                const done = await retractItem(item);
-                if (done) {
-                  toast.success('Item tornado privado.');
-                  await load();
-                } else {
-                  toast.message(
-                    'Nenhuma transição para privado disponível neste item.'
-                  );
-                }
-              } catch (err) {
-                toast.error(
-                  err instanceof ApiError
-                    ? err.message
-                    : 'Falha ao tornar privado.'
-                );
-              }
-            }}
-          >
-            <EyeOff className="mr-2 h-4 w-4" />
-            Tornar privado
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="text-red-600 focus:text-red-600"
-          onClick={() => setDeleteTarget(item)}
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Remover
-        </DropdownMenuItem>
+        {itemMenuItems(item, DropdownMenuItem, DropdownMenuSeparator)}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+
+  const wrapItemContextMenu = (item: PloneContentItem, node: React.ReactElement) => (
+    <ContextMenu
+      onOpenChange={(open) => {
+        if (open) {
+          setSelectedId(item['@id']);
+          setSelected(new Set([item['@id']]));
+        }
+      }}
+    >
+      <ContextMenuTrigger asChild>{node}</ContextMenuTrigger>
+      <ContextMenuContent className="w-52 rounded-xl">
+        {itemMenuItems(item, ContextMenuItem, ContextMenuSeparator)}
+      </ContextMenuContent>
+    </ContextMenu>
   );
 
   const typeOptions = useMemo(() => {
@@ -1189,15 +1321,20 @@ const ContentBrowser: React.FC = () => {
           )}
 
           <span className="ml-auto text-xs text-slate-500">
-            {filteredItems.length}{' '}
-            {filteredItems.length === 1 ? 'item' : 'itens'}
+            {loading && items.length === 0
+              ? '…'
+              : itemsTotal > 0
+                ? `${filteredItems.length.toLocaleString('pt-BR')} de ${itemsTotal.toLocaleString('pt-BR')}`
+                : `${filteredItems.length} ${
+                    filteredItems.length === 1 ? 'item' : 'itens'
+                  }`}
             {stateFilter === 'all' && privateCount > 0
               ? ` · ${privateCount} privado${privateCount === 1 ? '' : 's'}`
               : ''}
           </span>
         </div>
 
-      {loading ? (
+      {loading && items.length === 0 ? (
         <div className="flex min-h-[40vh] items-center justify-center gap-2 text-slate-500">
           <Loader2 className="h-5 w-5 animate-spin" />
           Carregando…
@@ -1210,7 +1347,7 @@ const ContentBrowser: React.FC = () => {
             Tentar de novo
           </Button>
         </div>
-      ) : filteredItems.length === 0 ? (
+      ) : filteredItems.length === 0 && !loadingMore ? (
         <div className="rounded-3xl border border-dashed border-slate-200 px-6 py-20 text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50">
             <Folder className="h-8 w-8 fill-amber-400/80 text-amber-500" />
@@ -1244,57 +1381,89 @@ const ContentBrowser: React.FC = () => {
               const isChecked = selected.has(item['@id']);
               const active = isChecked || selectedId === item['@id'];
               return (
-                <div
-                  key={item['@id']}
-                  data-plone-path={toPlonePath(item['@id'])}
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => handleItemClick(item, e)}
-                  onDoubleClick={() => handleItemDoubleClick(item)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleItemClick(item);
-                    }
-                  }}
-                  className={itemCardClass(item, active)}
-                >
-                  <div
-                    className={cn(
-                      'flex h-8 w-5 shrink-0 items-center justify-center self-center transition-opacity',
-                      active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'
-                    )}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Checkbox
-                      checked={isChecked}
-                      onCheckedChange={(v) => toggleSelect(item['@id'], v === true)}
-                      aria-label={`Selecionar ${getContentDisplayName(item)}`}
-                    />
-                  </div>
-                  <span className="flex h-8 shrink-0 items-center self-center">
-                    <DriveIcon
-                    type={item['@type']}
-                    compact
-                    folderish={isFolderishContent(item)}
-                    privateFolder={getReviewState(item) === 'private'}
-                  />
-                  </span>
-                  <div className="flex min-h-8 min-w-0 flex-1 items-center gap-1.5 self-center">
-                    <p className="truncate text-left text-sm font-medium leading-none text-slate-900">
-                      {getContentDisplayName(item)}
-                    </p>
-                    {stateBadge(item)}
-                  </div>
-                  <div
-                    className="flex h-8 shrink-0 items-center self-center"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {itemActions(item)}
-                  </div>
-                </div>
+                <React.Fragment key={item['@id']}>
+                  {wrapItemContextMenu(
+                    item,
+                    <div
+                      data-plone-path={toPlonePath(item['@id'])}
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => handleItemClick(item, e)}
+                      onDoubleClick={() => handleItemDoubleClick(item)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleItemClick(item);
+                        }
+                      }}
+                      className={itemCardClass(item, active)}
+                    >
+                      <div
+                        className={cn(
+                          'flex h-8 w-5 shrink-0 items-center justify-center self-center transition-opacity',
+                          active
+                            ? 'opacity-100'
+                            : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'
+                        )}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Checkbox
+                          checked={isChecked}
+                          onCheckedChange={(v) =>
+                            toggleSelect(item['@id'], v === true)
+                          }
+                          aria-label={`Selecionar ${getContentDisplayName(item)}`}
+                        />
+                      </div>
+                      <span className="flex h-8 shrink-0 items-center self-center">
+                        <DriveIcon
+                          type={item['@type']}
+                          compact
+                          folderish={isFolderishContent(item)}
+                          privateFolder={getReviewState(item) === 'private'}
+                        />
+                      </span>
+                      <div className="flex min-h-8 min-w-0 flex-1 items-center gap-1.5 self-center">
+                        <p className="truncate text-left text-sm font-medium leading-none text-slate-900">
+                          {getContentDisplayName(item)}
+                        </p>
+                        {stateBadge(item)}
+                      </div>
+                      <div
+                        className="flex h-8 shrink-0 items-center self-center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {itemActions(item)}
+                      </div>
+                    </div>
+                  )}
+                </React.Fragment>
               );
             })}
+          </div>
+          <div ref={sentinelRef} className="flex flex-col items-center gap-2 py-6">
+            {loadingMore && (
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Carregando mais…
+              </div>
+            )}
+            {!loadingMore && hasMore && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={loadMore}
+              >
+                Carregar mais
+              </Button>
+            )}
+            {!hasMore && items.length > 0 && (
+              <p className="text-xs text-slate-400">
+                Fim da lista · {itemsTotal.toLocaleString('pt-BR')} itens
+              </p>
+            )}
           </div>
         </div>
       ) : (
@@ -1359,58 +1528,85 @@ const ContentBrowser: React.FC = () => {
               const active = selectedId === item['@id'] || isChecked;
               return (
                 <li key={item['@id']}>
-                  <div
-                    data-plone-path={toPlonePath(item['@id'])}
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => handleItemClick(item, e)}
-                    onDoubleClick={() => handleItemDoubleClick(item)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleItemClick(item);
-                      }
-                    }}
-                    className={itemRowClass(item, active)}
-                  >
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={isChecked}
-                        onCheckedChange={(v) => toggleSelect(item['@id'], v === true)}
-                        aria-label={`Selecionar ${getContentDisplayName(item)}`}
-                      />
-                    </div>
-                    <div className="flex min-w-0 items-center gap-3">
-                      <DriveIcon
-                        type={item['@type']}
-                        folderish={isFolderishContent(item)}
-                        privateFolder={getReviewState(item) === 'private'}
-                      />
-                      <span className="truncate text-[15px] text-slate-900">
-                        {getContentDisplayName(item)}
-                      </span>
-                      {stateBadge(item)}
-                    </div>
-                    <div className="hidden truncate text-sm text-slate-600 sm:block">
-                      {item.Creator || '—'}
-                    </div>
-                    <div className="hidden truncate text-sm text-slate-600 sm:block">
-                      {formatShortDate(item.modified)}
-                    </div>
-                    <div className="hidden truncate text-sm text-slate-600 lg:block">
-                      {getContentTypeLabel(item)}
-                    </div>
+                  {wrapItemContextMenu(
+                    item,
                     <div
-                      className="flex justify-end"
-                      onClick={(e) => e.stopPropagation()}
+                      data-plone-path={toPlonePath(item['@id'])}
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => handleItemClick(item, e)}
+                      onDoubleClick={() => handleItemDoubleClick(item)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleItemClick(item);
+                        }
+                      }}
+                      className={itemRowClass(item, active)}
                     >
-                      {itemActions(item)}
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={isChecked}
+                          onCheckedChange={(v) => toggleSelect(item['@id'], v === true)}
+                          aria-label={`Selecionar ${getContentDisplayName(item)}`}
+                        />
+                      </div>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <DriveIcon
+                          type={item['@type']}
+                          folderish={isFolderishContent(item)}
+                          privateFolder={getReviewState(item) === 'private'}
+                        />
+                        <span className="truncate text-[15px] text-slate-900">
+                          {getContentDisplayName(item)}
+                        </span>
+                        {stateBadge(item)}
+                      </div>
+                      <div className="hidden truncate text-sm text-slate-600 sm:block">
+                        {item.Creator || '—'}
+                      </div>
+                      <div className="hidden truncate text-sm text-slate-600 sm:block">
+                        {formatShortDate(item.modified)}
+                      </div>
+                      <div className="hidden truncate text-sm text-slate-600 lg:block">
+                        {getContentTypeLabel(item)}
+                      </div>
+                      <div
+                        className="flex justify-end"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {itemActions(item)}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </li>
               );
             })}
           </ul>
+          <div ref={sentinelRef} className="flex flex-col items-center gap-2 py-6">
+            {loadingMore && (
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Carregando mais…
+              </div>
+            )}
+            {!loadingMore && hasMore && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={loadMore}
+              >
+                Carregar mais
+              </Button>
+            )}
+            {!hasMore && items.length > 0 && (
+              <p className="text-xs text-slate-400">
+                Fim da lista · {itemsTotal.toLocaleString('pt-BR')} itens
+              </p>
+            )}
+          </div>
         </div>
       )}
         </>

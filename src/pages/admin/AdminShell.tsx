@@ -1,4 +1,5 @@
 import RequireAuth from '@/components/auth/RequireAuth';
+import AdminScrollToTop from '@/components/admin/AdminScrollToTop';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +25,7 @@ import {
   Search,
   Upload,
 } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Link,
   NavLink,
@@ -45,6 +46,7 @@ const AdminLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState('');
+  const mainRef = useRef<HTMLElement>(null);
   const displayName = user?.fullname || user?.username || 'Usuário';
   const initial = (displayName || 'U').trim().charAt(0).toUpperCase();
 
@@ -222,6 +224,7 @@ const AdminLayout: React.FC = () => {
 
         {/* Main panel */}
         <main
+          ref={mainRef}
           className={cn(
             'min-h-0 min-w-0 flex-1 overflow-y-auto rounded-3xl bg-white',
             compactMain ? 'px-4 py-4 sm:px-6 sm:py-5' : 'px-5 py-6 sm:px-8 sm:py-8'
@@ -235,6 +238,7 @@ const AdminLayout: React.FC = () => {
               [search]
             )}
           />
+          <AdminScrollToTop scrollRef={mainRef} />
         </main>
       </div>
     </div>
