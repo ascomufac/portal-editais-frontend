@@ -1,3 +1,4 @@
+import AuthMenu from '@/components/auth/AuthMenu';
 import Sidebar from '@/components/Sidebar';
 import SearchBar from '@/components/SearchBar';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -118,7 +119,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, className 
               </NavLink>
 
               {isMobile ? (
-                <div className="ml-auto shrink-0">
+                <div className="ml-auto flex shrink-0 items-center gap-0.5">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -128,11 +129,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, className 
                   >
                     <Search className="h-5 w-5" />
                   </Button>
+                  <AuthMenu />
                 </div>
               ) : (
-                <div className="min-w-0 flex-1 flex justify-end md:justify-center px-2 sm:px-4">
-                  <SearchBar compact />
-                </div>
+                <>
+                  <div className="min-w-0 flex-1 flex justify-end md:justify-center px-2 sm:px-4">
+                    <SearchBar compact />
+                  </div>
+                  <AuthMenu />
+                </>
               )}
             </>
           )}

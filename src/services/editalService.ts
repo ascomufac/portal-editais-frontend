@@ -3,15 +3,10 @@
  * @module editalService
  */
 
-/** Site Plone (URLs absolutas / reescrita de links) */
-export const SITE_URL = 'https://www3.ufac.br';
+import { apiRequest } from '@/services/apiClient';
+import { BASE_URL, SITE_URL } from '@/services/ploneConfig';
 
-/**
- * API via proxy same-origin (/__plone__ no Vite e no nginx).
- * Evita falha de CORS: o Varnish devolve GET em cache SEM Access-Control-Allow-Origin,
- * embora o OPTIONS preflight tenha CORS correto.
- */
-export const BASE_URL = '/__plone__/++api++';
+export { BASE_URL, SITE_URL };
 
 /** Mapeamento de rotas amigáveis para IDs de setor no Plone */
 export const categoryToSetorMap: Record<string, string> = {
@@ -108,15 +103,6 @@ export const sortMenuItems = <T extends { id: string; title?: string }>(items: T
     .map(({ item }) => item);
 };
 
-
-const apiRequest = async <T>(endpoint: string): Promise<T> => {
-  const normalized = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const response = await fetch(`${BASE_URL}${normalized}`);
-  if (!response.ok) {
-    throw new Error(`Erro na requisição: ${response.status}`);
-  }
-  return response.json();
-};
 
 /**
  * Converte URL absoluta do Plone em caminho relativo do site

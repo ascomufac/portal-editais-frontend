@@ -1,7 +1,7 @@
 import { useToast } from '@/components/ui/use-toast';
 import { EditalDocumentType, EditalType } from '@/types/edital';
+import { apiFetch } from '@/services/apiClient';
 import {
-  BASE_URL,
   SITE_URL,
   rewritePloneHtmlLinks,
   toEditalHref,
@@ -28,8 +28,8 @@ export function useEditalDetails(editalId: string | undefined) {
   const fetchBreadcrumbs = async (path: string) => {
     try {
       const normalizedPath = path.replace(/^\/+|\/+$/g, '').replace(`${SITE_URL}/`, '');
-      const endpoint = `${BASE_URL}/${normalizedPath}/@breadcrumbs`;
-      const response = await fetch(endpoint);
+      const endpoint = `/${normalizedPath}/@breadcrumbs`;
+      const response = await apiFetch(endpoint);
 
       if (!response.ok) {
         console.warn(`Breadcrumbs API error: ${response.status}`);
@@ -72,8 +72,8 @@ export function useEditalDetails(editalId: string | undefined) {
       searchParams.append('metadata_fields', 'items_total');
 
       const normalizedEditalId = toSitePath(_editalId);
-      const endpoint = `${BASE_URL}/${normalizedEditalId}?${searchParams.toString()}`;
-      const response = await fetch(endpoint);
+      const endpoint = `/${normalizedEditalId}?${searchParams.toString()}`;
+      const response = await apiFetch(endpoint);
 
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
