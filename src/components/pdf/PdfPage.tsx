@@ -28,18 +28,20 @@ const PdfPage: React.FC<PdfPageProps> = ({
 }) => {
   const pageRef = useRef<HTMLDivElement>(null);
   
-  // Calculate dimensions based on fit type
-  // 'zoom' = só scale (pinch / botões), sem travar na largura do container
+  // Fit width/page: a largura/altura do container define o tamanho (scale=1).
+  // Zoom manual: só scale, sem travar na largura.
+  const useFitWidth = fitType === 'width' || fitType === 'page';
   const width =
-    fitType === 'width' || fitType === 'page'
-      ? containerWidth
-        ? containerWidth - 40
-        : undefined
+    useFitWidth && containerWidth
+      ? Math.max(containerWidth - 32, 120)
       : undefined;
-  
-  const height = fitType === 'page' 
-    ? (containerHeight ? containerHeight - 40 : undefined) 
-    : undefined;
+
+  const height =
+    fitType === 'page' && containerHeight
+      ? Math.max(containerHeight - 32, 120)
+      : undefined;
+
+  const pageScale = useFitWidth ? 1 : scale;
 
   // Set the data page number attribute and handle text content
   useEffect(() => {
@@ -122,24 +124,20 @@ const PdfPage: React.FC<PdfPageProps> = ({
       }
     };
   }, [pageNumber, scale, rotation]);
-  
-  // Marca d'água em grade, proporcional ao zoom
-  const watermarkWidth = Math.max(72, Math.round(200 * scale));
-  const watermarkGap = Math.max(24, Math.round(48 * scale));
-  // Cobertura suficiente para A4 em qualquer zoom (grade 4x5)
-  const watermarkTiles = Array.from({ length: 20 }, (_, i) => i);
+
+  const signatureWidth = Math.max(56, Math.round(96 * pageScale));
 
   return (
     <div 
     ref={pageRef}
-    className="my-10 shadow-2xl max-w-full rounded-3xl " 
+    className="my-4 max-w-full rounded-3xl shadow-2xl sm:my-10" 
     style={{ maxWidth: 'var(--pdf-page-max-width, 100%)', position: 'relative' }}
     data-page-number={pageNumber}
     >
       <Page 
-        key={`page_${pageNumber}_${rotation}_${scale}_${fitType}`}
+        key={`page_${pageNumber}_${rotation}_${pageScale}_${fitType}_${width ?? 'auto'}`}
         pageNumber={pageNumber} 
-        scale={scale}
+        scale={pageScale}
         rotate={rotation}
         width={width}
         height={height}
@@ -162,26 +160,13 @@ const PdfPage: React.FC<PdfPageProps> = ({
           // console.log(`Page ${pageNumber} loaded successfully`);
         }}
       />
-      {/* Marca d'água repetida em grade, escala com o zoom */}
+      {/* Assinatura discreta no canto inferior direito */}
       <div
-        className="pointer-events-none absolute inset-0 z-10 overflow-hidden rounded-2xl"
+        className="pointer-events-none absolute bottom-3 right-3 z-10 opacity-40 sm:bottom-4 sm:right-4"
+        style={{ width: signatureWidth }}
         aria-hidden="true"
       >
-        <div
-          className="absolute inset-0 flex flex-wrap content-around justify-around opacity-25"
-          style={{
-            gap: watermarkGap,
-            padding: watermarkGap,
-            transform: 'rotate(-18deg) scale(1.25)',
-            transformOrigin: 'center center',
-          }}
-        >
-          {watermarkTiles.map((i) => (
-            <div key={i} style={{ width: watermarkWidth }} className="shrink-0">
-              <UfacLogo clasName="h-auto w-full" />
-            </div>
-          ))}
-        </div>
+        <UfacLogo clasName="h-auto w-full" />
       </div>
       </div>
   );

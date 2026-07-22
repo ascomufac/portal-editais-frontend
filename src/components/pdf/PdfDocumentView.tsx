@@ -17,7 +17,8 @@ interface PdfDocumentViewProps {
   scale: number;
   rotation: number;
   fitType: FitType;
-  containerRef: HTMLDivElement | null;
+  containerWidth?: number;
+  containerHeight?: number;
   onLoadSuccess: ({ numPages }: { numPages: number }) => void;
   onLoadError: (error: Error) => void;
   pdfOptions: any;
@@ -32,7 +33,8 @@ const PdfDocumentView: React.FC<PdfDocumentViewProps> = ({
   scale,
   rotation,
   fitType,
-  containerRef,
+  containerWidth = 0,
+  containerHeight = 0,
   onLoadSuccess,
   onLoadError,
   pdfOptions,
@@ -125,8 +127,8 @@ const PdfDocumentView: React.FC<PdfDocumentViewProps> = ({
               scale={scale}
               rotation={rotation}
               fitType={fitType}
-              containerWidth={containerRef?.clientWidth}
-              containerHeight={containerRef?.clientHeight}
+              containerWidth={containerWidth || undefined}
+              containerHeight={containerHeight || undefined}
               isCurrentPage={index + 1 === pageNumber}
               enableTextLayer={enableTextLayer}
             />

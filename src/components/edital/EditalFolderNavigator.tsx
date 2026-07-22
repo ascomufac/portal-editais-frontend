@@ -14,7 +14,6 @@ import { motion } from 'framer-motion';
 import {
 	Calendar,
 	ChevronRight,
-	Clock,
 	Download,
 	Eye,
 	FileText,
@@ -22,7 +21,7 @@ import {
 	Undo,
 	UserCircle,
 } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FileTypeIcon, {
 	FILE_KIND_STYLES,
@@ -36,7 +35,6 @@ import { useToast } from '@/components/ui/use-toast';
 import EditalFolderSkeleton from './EditalFolderSkeleton';
 import EditalHeaderSkeleton from './EditalHeaderSkeleton';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 
 interface EditalFolderNavigatorProps {
 	documents: EditalDocumentType[];
@@ -104,6 +102,15 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 			file: files,
 		};
 	}, [searchableItems]);
+
+	/** Só faz sentido filtrar quando há pastas e arquivos */
+	const showTypeFilter = typeCounts.folder > 0 && typeCounts.file > 0;
+
+	useEffect(() => {
+		if (!showTypeFilter && itemTypeFilter !== 'all') {
+			setItemTypeFilter('all');
+		}
+	}, [showTypeFilter, itemTypeFilter]);
 
 	const documentVariants = {
 		initial: { opacity: 0, y: 10 },
@@ -219,212 +226,219 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 
 	return (
 		<div className='w-full'>
-			<div className='mb-6'>
-				<div className='flex items-center mb-4'>
+			<div className='mb-3 sm:mb-6'>
+				<div className='flex items-center gap-2'>
 					{currentFolder && (
 						<Button
-							variant='outline'
+							variant='ghost'
 							size='sm'
 							onClick={() => navigateUp()}
-							className='mr-3 rounded-full h-10 w-10 p-0'>
+							className='h-9 w-9 shrink-0 rounded-full p-0'
+							aria-label='Voltar pasta'
+						>
 							<Undo className='h-4 w-4' />
 						</Button>
 					)}
 
-					<div className='flex-grow overflow-hidden'>
+					<div className='min-w-0 flex-grow overflow-hidden'>
 						<EditalBreadcrumb
 							breadcrumbItems={breadcrumbItems}
 							navigateUp={navigateUp}
 							navigateToSpecificBreadcrumb={navigateToSpecificBreadcrumb}
-							rootTitle={editalTitle || "Documentos"}
+							editalTitle={editalTitle}
 						/>
 					</div>
 				</div>
 			</div>
 
-			<div className='flex flex-col md:flex-row md:items-center gap-4 mb-5'>
+			<div
+				className={cn(
+					'mb-3 flex flex-col gap-2 sm:mb-5',
+					showTypeFilter && 'sm:flex-row sm:items-center sm:gap-4'
+				)}
+			>
 				<div className='flex-1'>
 					<Input
-						placeholder="Buscar documentos..."
+						placeholder='Buscar...'
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
-						className="w-full"
+						className='h-10 w-full'
 					/>
 				</div>
-				<div className='flex gap-2 items-center'>
-					<span className='text-sm text-gray-500'>Filtrar por:</span>
-					<Tabs value={itemTypeFilter} onValueChange={(v) => setItemTypeFilter(v as 'all' | 'folder' | 'file')}>
-						<TabsList className='bg-white rounded-xl h-auto p-1 gap-0.5'>
-							<TabsTrigger
-								value="all"
-								className='flex items-center gap-1.5 rounded-lg px-3 py-1.5 data-[state=active]:bg-ufac-lightBlue data-[state=active]:text-ufac-blue'
-							>
-								<FileText className='h-3.5 w-3.5' />
-								<span>Todos</span>
-								<span
-									className={cn(
-										'ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums',
-										itemTypeFilter === 'all'
-											? 'bg-ufac-blue text-white'
-											: 'bg-slate-100 text-slate-600'
-									)}
+				{showTypeFilter && (
+					<div className='flex items-center gap-2 overflow-x-auto no-scrollbar'>
+						<span className='hidden shrink-0 text-sm text-gray-500 sm:inline'>
+							Filtrar por:
+						</span>
+						<Tabs
+							value={itemTypeFilter}
+							onValueChange={(v) =>
+								setItemTypeFilter(v as 'all' | 'folder' | 'file')
+							}
+						>
+							<TabsList className='h-auto gap-0.5 rounded-xl bg-white p-1'>
+								<TabsTrigger
+									value='all'
+									className='flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs data-[state=active]:bg-ufac-lightBlue data-[state=active]:text-ufac-blue sm:gap-1.5 sm:px-3 sm:text-sm'
 								>
-									{typeCounts.all}
-								</span>
-							</TabsTrigger>
-							<TabsTrigger
-								value="folder"
-								className='flex items-center gap-1.5 rounded-lg px-3 py-1.5 data-[state=active]:bg-ufac-lightBlue data-[state=active]:text-ufac-blue'
-							>
-								<Folder className='h-3.5 w-3.5' />
-								<span>Pastas</span>
-								<span
-									className={cn(
-										'ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums',
-										itemTypeFilter === 'folder'
-											? 'bg-ufac-blue text-white'
-											: 'bg-slate-100 text-slate-600'
-									)}
+									<span>Todos</span>
+									<span
+										className={cn(
+											'inline-flex min-w-[1.15rem] items-center justify-center rounded-full px-1 py-0.5 text-[10px] font-semibold leading-none tabular-nums',
+											itemTypeFilter === 'all'
+												? 'bg-ufac-blue text-white'
+												: 'bg-slate-100 text-slate-600'
+										)}
+									>
+										{typeCounts.all}
+									</span>
+								</TabsTrigger>
+								<TabsTrigger
+									value='folder'
+									className='flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs data-[state=active]:bg-ufac-lightBlue data-[state=active]:text-ufac-blue sm:gap-1.5 sm:px-3 sm:text-sm'
 								>
-									{typeCounts.folder}
-								</span>
-							</TabsTrigger>
-							<TabsTrigger
-								value="file"
-								className='flex items-center gap-1.5 rounded-lg px-3 py-1.5 data-[state=active]:bg-ufac-lightBlue data-[state=active]:text-ufac-blue'
-							>
-								<FileText className='h-3.5 w-3.5' />
-								<span>Arquivos</span>
-								<span
-									className={cn(
-										'ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums',
-										itemTypeFilter === 'file'
-											? 'bg-ufac-blue text-white'
-											: 'bg-slate-100 text-slate-600'
-									)}
+									<Folder className='h-3.5 w-3.5' />
+									<span className='hidden sm:inline'>Pastas</span>
+									<span
+										className={cn(
+											'inline-flex min-w-[1.15rem] items-center justify-center rounded-full px-1 py-0.5 text-[10px] font-semibold leading-none tabular-nums',
+											itemTypeFilter === 'folder'
+												? 'bg-ufac-blue text-white'
+												: 'bg-slate-100 text-slate-600'
+										)}
+									>
+										{typeCounts.folder}
+									</span>
+								</TabsTrigger>
+								<TabsTrigger
+									value='file'
+									className='flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs data-[state=active]:bg-ufac-lightBlue data-[state=active]:text-ufac-blue sm:gap-1.5 sm:px-3 sm:text-sm'
 								>
-									{typeCounts.file}
-								</span>
-							</TabsTrigger>
-						</TabsList>
-					</Tabs>
-				</div>
+									<FileText className='h-3.5 w-3.5' />
+									<span className='hidden sm:inline'>Arquivos</span>
+									<span
+										className={cn(
+											'inline-flex min-w-[1.15rem] items-center justify-center rounded-full px-1 py-0.5 text-[10px] font-semibold leading-none tabular-nums',
+											itemTypeFilter === 'file'
+												? 'bg-ufac-blue text-white'
+												: 'bg-slate-100 text-slate-600'
+										)}
+									>
+										{typeCounts.file}
+									</span>
+								</TabsTrigger>
+							</TabsList>
+						</Tabs>
+					</div>
+				)}
 			</div>
 
 			{isMobile ? (
-				<div className='space-y-3'>
+				<div className='divide-y divide-slate-100 overflow-hidden rounded-xl bg-white'>
 					{processedItems.length > 0 ? (
-						<>
-							{processedItems.map((item) => (
-								<motion.div
-									key={item.id}
-									variants={documentVariants}
-									initial='initial'
-									animate='animate'
-									exit='exit'
-									transition={{ duration: 0.2 }}>
-									{isFolderItem(item) ? (
-										<Card className='mb-3 border border-gray-100 shadow-sm'>
-											<CardContent className='p-0'>
-												<button
-													type='button'
-													className='flex items-center p-4 cursor-pointer w-full text-left'
-													onClick={() => handleOpenItem(item)}
-												>
-													<Folder className='h-5 w-5 mr-3 text-blue-500' />
-													<div className='flex-grow'>
-														<div className='font-medium text-blue-600'>
-															{item.title}
-														</div>
-														<div className='text-xs text-gray-500 flex items-center gap-2'>
-															<UserCircle className='h-3 w-3' /> {item.Creator || item.author} 
-															<span className='mx-1'>•</span> 
-															<Calendar className='h-3 w-3' /> {formatDate(item.modified)}
-														</div>
+						processedItems.map((item) => (
+							<motion.div
+								key={item.id}
+								variants={documentVariants}
+								initial='initial'
+								animate='animate'
+								exit='exit'
+								transition={{ duration: 0.15 }}
+							>
+								{isFolderItem(item) ? (
+									<button
+										type='button'
+										className='flex w-full items-center gap-3 px-3 py-3 text-left active:bg-slate-50'
+										onClick={() => handleOpenItem(item)}
+									>
+										<Folder className='h-5 w-5 shrink-0 text-ufac-blue' />
+										<div className='min-w-0 flex-1'>
+											<div className='truncate text-sm font-medium text-slate-800'>
+												{item.title}
+											</div>
+											<div className='truncate text-[11px] text-slate-500'>
+												{formatDate(item.modified)}
+											</div>
+										</div>
+										<ChevronRight className='h-4 w-4 shrink-0 text-slate-400' />
+									</button>
+								) : (
+									<div className='px-3 py-3'>
+										<button
+											type='button'
+											className='flex w-full items-center gap-3 text-left'
+											onClick={() => handleOpenItem(item)}
+										>
+											{(() => {
+												const kind = getFileKind(
+													item.title,
+													item.url,
+													item['@id']
+												);
+												return (
+													<div
+														className={cn(
+															'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+															FILE_KIND_STYLES[kind].bgSoft
+														)}
+													>
+														<FileTypeIcon
+															kind={kind}
+															withBackground={false}
+															className='h-4 w-4'
+															size={16}
+														/>
 													</div>
-													<ChevronRight className='h-5 w-5 text-gray-400' />
-												</button>
-											</CardContent>
-										</Card>
-									) : (
-										<Card className='mb-3 border border-gray-100 shadow-sm overflow-hidden'>
-											<CardContent className='p-0'>
-												<button
-													type='button'
-													className='flex items-center p-4 cursor-pointer w-full text-left hover:bg-gray-50'
-													onClick={() => handleOpenItem(item)}
-												>
-													{(() => {
-														const kind = getFileKind(
-															item.title,
-															item.url,
-															item['@id']
-														);
-														return (
-															<div
-																className={cn(
-																	'min-w-10 min-h-10 flex items-center justify-center rounded-full mr-3',
-																	FILE_KIND_STYLES[kind].bgSoft
-																)}
-															>
-																<FileTypeIcon
-																	kind={kind}
-																	withBackground={false}
-																	className='h-5 w-5'
-																	size={20}
-																/>
-															</div>
-														);
-													})()}
-													<div className='flex-grow min-w-0'>
-														<div className='font-medium text-slate-800 hover:text-ufac-blue line-clamp-2'>
-															{item.title}
-														</div>
-														<div className='text-xs text-gray-500 flex items-center gap-2 mt-1'>
-															<UserCircle className='h-3.5 w-3.5 text-gray-400' />
-															{item.Creator || item.author}
-															<span className='mx-1'>•</span>
-															<Calendar className='h-3.5 w-3.5 text-gray-400' />
-															{formatDate(item.modified)}
-														</div>
-													</div>
-													<ChevronRight className='h-5 w-5 text-gray-400 flex-shrink-0' />
-												</button>
-												<div className='flex gap-2 justify-end px-4 pb-3'>
-													{(isPdf(item.url || '') || isPdf(item['@id'] || '')) && (
-														<Button
-															size='sm'
-															variant='outline'
-															onClick={(e) => {
-																e.stopPropagation();
-																handleViewPdf(item.url || item['@id'] || '');
-															}}
-														>
-															<Eye className='h-4 w-4 mr-1' />
-															Visualizar
-														</Button>
-													)}
-													<Button asChild size='sm'>
-														<a
-															href={item.url || item['@id']}
-															target='_blank'
-															rel='noreferrer'
-															onClick={(e) => e.stopPropagation()}
-														>
-															<Download className='h-4 w-4 mr-1' />
-															Baixar
-														</a>
-													</Button>
+												);
+											})()}
+											<div className='min-w-0 flex-1'>
+												<div className='line-clamp-2 text-sm font-medium text-slate-800'>
+													{item.title}
 												</div>
-											</CardContent>
-										</Card>
-									)}
-								</motion.div>
-							))}
-						</>
+												<div className='mt-0.5 truncate text-[11px] text-slate-500'>
+													{[item.Creator || item.author, formatDate(item.modified)]
+														.filter(Boolean)
+														.join(' · ')}
+												</div>
+											</div>
+										</button>
+										<div className='mt-2 flex justify-end gap-1.5'>
+											{(isPdf(item.url || '') ||
+												isPdf(item['@id'] || '')) && (
+												<Button
+													size='sm'
+													variant='ghost'
+													className='h-8 px-2 text-xs'
+													onClick={(e) => {
+														e.stopPropagation();
+														handleViewPdf(item.url || item['@id'] || '');
+													}}
+												>
+													<Eye className='mr-1 h-3.5 w-3.5' />
+													Ver
+												</Button>
+											)}
+											<Button asChild size='sm' variant='ghost' className='h-8 px-2 text-xs'>
+												<a
+													href={item.url || item['@id']}
+													target='_blank'
+													rel='noreferrer'
+													onClick={(e) => e.stopPropagation()}
+												>
+													<Download className='mr-1 h-3.5 w-3.5' />
+													Baixar
+												</a>
+											</Button>
+										</div>
+									</div>
+								)}
+							</motion.div>
+						))
 					) : (
-						<div className='text-center py-8 text-gray-500 bg-gray-50 rounded-lg'>
-							{searchQuery ? 'Nenhum documento encontrado para a busca.' : 'Esta pasta está vazia.'}
+						<div className='rounded-lg bg-slate-50 py-8 text-center text-sm text-slate-500'>
+							{searchQuery
+								? 'Nenhum documento encontrado para a busca.'
+								: 'Esta pasta está vazia.'}
 						</div>
 					)}
 				</div>

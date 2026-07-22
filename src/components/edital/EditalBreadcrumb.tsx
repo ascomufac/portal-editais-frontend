@@ -10,69 +10,69 @@ import {
 import React from 'react';
 import { Home } from 'lucide-react';
 
-/**
- * Interface para as propriedades do componente EditalBreadcrumb
- * @interface EditalBreadcrumbProps
- * @property {Array<{ id: string; title: string }>} breadcrumbItems - Itens da navegação estrutural
- * @property {function} navigateUp - Função para navegar um nível acima
- * @property {function} navigateToSpecificBreadcrumb - Função para navegar para um breadcrumb específico
- * @property {string} rootTitle - Título do item raiz (opcional)
- */
+const SHORT_ALIAS = 'Documentos';
+
 interface EditalBreadcrumbProps {
   breadcrumbItems: Array<{ id: string; title: string }>;
   navigateUp: () => void;
   navigateToSpecificBreadcrumb: (stepsBack: number) => void;
-  rootTitle?: string;
+  /** Título completo do edital — no breadcrumb vira alias curto para não repetir o H1 */
+  editalTitle?: string;
 }
 
-/**
- * Componente de navegação estrutural (breadcrumb) para editais
- * @param {EditalBreadcrumbProps} props - Propriedades do componente
- * @returns {JSX.Element} Componente React renderizado
- * @description Exibe uma trilha de navegação que permite ao usuário entender
- *              sua localização na hierarquia de documentos e navegar facilmente
- *              para níveis superiores.
- */
+function displayTitle(title: string, editalTitle?: string) {
+  if (editalTitle && title.trim() === editalTitle.trim()) {
+    return SHORT_ALIAS;
+  }
+  return title;
+}
+
 const EditalBreadcrumb: React.FC<EditalBreadcrumbProps> = ({
   breadcrumbItems,
   navigateUp,
   navigateToSpecificBreadcrumb,
-  rootTitle = "Documentos"
+  editalTitle,
 }) => {
-  // If we have API breadcrumbs, use them directly
-  const hasApiBreadcrumbs = breadcrumbItems.length > 0 && breadcrumbItems[0].id.includes('www3.ufac.br');
-  
+  const hasApiBreadcrumbs =
+    breadcrumbItems.length > 0 && breadcrumbItems[0].id.includes('www3.ufac.br');
+
   return (
     <Breadcrumb>
       <BreadcrumbList className="overflow-x-auto py-1 no-scrollbar">
         {hasApiBreadcrumbs ? (
-          // API-based breadcrumbs
           <>
-            {breadcrumbItems.map((item, index) => (
-              <React.Fragment key={item.id || index}>
-                {index > 0 && <BreadcrumbSeparator />}
-                <BreadcrumbItem>
-                  {index === breadcrumbItems.length - 1 ? (
-                    <BreadcrumbPage>{item.title}</BreadcrumbPage>
-                  ) : (
-                    <BreadcrumbLink
-                      href="#"
-                      className="cursor-pointer select-none"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const steps = breadcrumbItems.length - 1 - index;
-                        navigateToSpecificBreadcrumb(steps);
-                      }}
-                    >
-                      {item.title}
-                    </BreadcrumbLink>
-                  )}
-                </BreadcrumbItem>
-              </React.Fragment>
-            ))}
+            {breadcrumbItems.map((item, index) => {
+              const label = displayTitle(item.title, editalTitle);
+              const isLast = index === breadcrumbItems.length - 1;
+
+              return (
+                <React.Fragment key={item.id || index}>
+                  {index > 0 && <BreadcrumbSeparator />}
+                  <BreadcrumbItem>
+                    {isLast ? (
+                      <BreadcrumbPage className="max-w-[12rem] truncate sm:max-w-none">
+                        {label}
+                      </BreadcrumbPage>
+                    ) : (
+                      <BreadcrumbLink
+                        href="#"
+                        className="max-w-[10rem] cursor-pointer truncate select-none sm:max-w-[14rem]"
+                        title={item.title}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const steps = breadcrumbItems.length - 1 - index;
+                          navigateToSpecificBreadcrumb(steps);
+                        }}
+                      >
+                        {label}
+                      </BreadcrumbLink>
+                    )}
+                  </BreadcrumbItem>
+                </React.Fragment>
+              );
+            })}
           </>
         ) : (
-          // Standard breadcrumb navigation
           <>
             <BreadcrumbItem>
               <BreadcrumbLink
@@ -83,35 +83,43 @@ const EditalBreadcrumb: React.FC<EditalBreadcrumbProps> = ({
                     navigateUp();
                   }
                 }}
-                className="flex items-center gap-1 cursor-pointer select-none hover:text-ufac-blue transition-colors"
+                className="flex cursor-pointer select-none items-center gap-1 transition-colors hover:text-ufac-blue"
               >
                 <Home className="h-3.5 w-3.5" />
-                <span>{rootTitle}</span>
+                <span>{SHORT_ALIAS}</span>
               </BreadcrumbLink>
             </BreadcrumbItem>
-            
-            {breadcrumbItems.map((item, index) => (
-              <React.Fragment key={item.id || index}>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  {index === breadcrumbItems.length - 1 ? (
-                    <BreadcrumbPage>{item.title}</BreadcrumbPage>
-                  ) : (
-                    <BreadcrumbLink
-                      href="#"
-                      className="cursor-pointer select-none"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const steps = breadcrumbItems.length - 1 - index;
-                        navigateToSpecificBreadcrumb(steps);
-                      }}
-                    >
-                      {item.title}
-                    </BreadcrumbLink>
-                  )}
-                </BreadcrumbItem>
-              </React.Fragment>
-            ))}
+
+            {breadcrumbItems.map((item, index) => {
+              const label = displayTitle(item.title, editalTitle);
+              const isLast = index === breadcrumbItems.length - 1;
+
+              return (
+                <React.Fragment key={item.id || index}>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    {isLast ? (
+                      <BreadcrumbPage className="max-w-[12rem] truncate sm:max-w-none">
+                        {label}
+                      </BreadcrumbPage>
+                    ) : (
+                      <BreadcrumbLink
+                        href="#"
+                        className="max-w-[10rem] cursor-pointer truncate select-none sm:max-w-[14rem]"
+                        title={item.title}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const steps = breadcrumbItems.length - 1 - index;
+                          navigateToSpecificBreadcrumb(steps);
+                        }}
+                      >
+                        {label}
+                      </BreadcrumbLink>
+                    )}
+                  </BreadcrumbItem>
+                </React.Fragment>
+              );
+            })}
           </>
         )}
       </BreadcrumbList>

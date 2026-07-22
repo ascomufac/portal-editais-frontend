@@ -45,7 +45,7 @@ export function usePdfViewer(fileUrl: string, downloadUrl?: string) {
     numPages: null,
     pageNumber: 1,
     pageInputValue: '1',
-    scale: .5,
+    scale: 1,
     rotation: 0,
     loading: true,
     error: false,

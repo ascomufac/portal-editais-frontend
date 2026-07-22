@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import PdfViewer from '@/components/pdf/PdfViewer';
 import MainLayout from '@/layouts/MainLayout';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -14,14 +14,28 @@ const PdfViewerPage: React.FC = () => {
   const isSidebarCollapsed = getSidebarCollapsedState();
   const decodedUrl = pdfUrl ? decodeURIComponent(pdfUrl) : '';
 
+  // Impede o body de rolar — o scroll deve ficar só no container do PDF
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtml = html.style.overflow;
+    const prevBody = body.style.overflow;
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    return () => {
+      html.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
+    };
+  }, []);
+
   return (
     <MainLayout
       pageTitle="Visualizador de PDF"
-      className="flex h-[calc(100dvh-3.5rem)] min-h-0 flex-1 flex-col overflow-hidden p-0 sm:h-[calc(100dvh-4rem)]"
+      className="flex h-full min-h-0 flex-col overflow-hidden p-0"
     >
       <div
         className={cn(
-          'relative flex h-full max-h-full min-h-0 w-full flex-1 flex-col overflow-hidden',
+          'relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden',
           !isMobile &&
             (isSidebarCollapsed
               ? 'max-w-[calc(100vw-4rem)]'
