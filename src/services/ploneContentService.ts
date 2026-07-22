@@ -88,6 +88,7 @@ export type PloneHistoryActor = {
   id?: string;
   fullname?: string;
   username?: string;
+  title?: string;
 };
 
 export type PloneHistoryEntry = {
@@ -276,6 +277,65 @@ export const parentPlonePath = (path: string): string => {
   return clean.split('/').slice(0, -1).join('/');
 };
 
+/** Segmentos do path pai (sem o próprio item), já decodificados. */
+export const getParentPathSegments = (urlOrPath?: string | null): string[] => {
+  if (!urlOrPath) return [];
+  const parts = toPlonePath(urlOrPath).split('/').filter(Boolean);
+  if (parts.length <= 1) return [];
+  return parts.slice(0, -1).map((seg) => {
+    try {
+      return decodeURIComponent(seg);
+    } catch {
+      return seg;
+    }
+  });
+};
+
+/**
+ * Localização legível para listas recentes (estilo Drive).
+ * Usa ids do path — sem round-trip à API.
+ */
+export const getContentLocationLabel = (
+  item: Pick<PloneContentItem, '@id'> | null | undefined,
+  options: { maxSegments?: number } = {}
+): string => {
+  const { maxSegments = 3 } = options;
+  const segments = getParentPathSegments(item?.['@id']);
+  if (segments.length === 0) return 'Raiz';
+  const visible =
+    segments.length > maxSegments ? segments.slice(-maxSegments) : segments;
+  const joined = visible.join(' › ');
+  return segments.length > maxSegments ? `… › ${joined}` : joined;
+};
+
+/** Prefixo "em …" / "na raiz" para subtítulos de recentes. */
+export const formatContentLocation = (
+  item: Pick<PloneContentItem, '@id'> | null | undefined
+): string => {
+  const label = getContentLocationLabel(item);
+  return label === 'Raiz' ? 'na raiz' : `em ${label}`;
+};
+
+/**
+ * Pasta imediata (coluna "Local" do Drive): rótulo + path para navegar.
+ */
+export const getImmediateParentLocation = (
+  item: Pick<PloneContentItem, '@id'> | null | undefined
+): { path: string; label: string; fullPath: string } => {
+  const atId = item?.['@id'] || '';
+  const path = parentPlonePath(toPlonePath(atId));
+  const segments = getParentPathSegments(atId);
+  const fullPath = segments.join(' / ');
+  if (segments.length === 0) {
+    return { path: '', label: 'Editais', fullPath: '' };
+  }
+  return {
+    path,
+    label: segments[segments.length - 1],
+    fullPath,
+  };
+};
+
 export const getContent = async (path = ''): Promise<PloneContentItem> => {
   return apiRequest<PloneContentItem>(pathToApiEndpoint(path) || '/');
 };
@@ -314,9 +374,25 @@ export const REVIEW_STATE_LABELS: Record<string, string> = {
 
 export const listFolderContents = async (
   path = '',
-  options: { b_size?: number; b_start?: number } = {}
-): Promise<{ parent: PloneContentItem; items: PloneContentItem[] }> => {
-  const { b_size = 200, b_start = 0 } = options;
+  options: {
+    b_size?: number;
+    b_start?: number;
+    portal_type?: string;
+    review_state?: string;
+    SearchableText?: string;
+  } = {}
+): Promise<{
+  parent: PloneContentItem;
+  items: PloneContentItem[];
+  items_total: number;
+}> => {
+  const {
+    b_size = 60,
+    b_start = 0,
+    portal_type,
+    review_state,
+    SearchableText,
+  } = options;
   const params = new URLSearchParams();
   // @search com depth=1 inclui private quando autenticado (folder.items costuma vir do cache).
   params.append('path.depth', '1');
@@ -331,17 +407,30 @@ export const listFolderContents = async (
   params.append('b_start', String(b_start));
   params.append('sort_on', 'getObjPositionInParent');
 
+  if (portal_type?.trim()) {
+    params.append('portal_type', portal_type.trim());
+  }
+  if (review_state?.trim()) {
+    params.append('review_state', review_state.trim());
+  }
+  if (SearchableText?.trim()) {
+    params.append('SearchableText', SearchableText.trim());
+  }
+
   const parentEndpoint = pathToApiEndpoint(path) || '/';
   const searchEndpoint = withService(path, '@search');
 
   const [parent, search] = await Promise.all([
     apiRequest<PloneContentItem>(parentEndpoint),
-    apiRequest<{ items?: PloneContentItem[] }>(`${searchEndpoint}?${params.toString()}`),
+    apiRequest<{ items?: PloneContentItem[]; items_total?: number }>(
+      `${searchEndpoint}?${params.toString()}`
+    ),
   ]);
 
   return {
     parent: normalizeContentItem(parent),
     items: Array.isArray(search.items) ? search.items.map(normalizeContentItem) : [],
+    items_total: search.items_total ?? 0,
   };
 };
 

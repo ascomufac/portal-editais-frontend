@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button';
 import {
   ApiError,
   getContentHistory,
+  getWorkflow,
   type PloneHistoryEntry,
 } from '@/services/ploneContentService';
-import { History, Loader2, RefreshCw } from 'lucide-react';
+import { History, Loader2, RefreshCw, User } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -22,11 +23,61 @@ type HistoryDialogProps = {
   title?: string;
 };
 
-const actorLabel = (entry: PloneHistoryEntry): string => {
-  const actor = entry.actor;
-  if (!actor) return '—';
-  if (typeof actor === 'string') return actor;
-  return actor.fullname || actor.username || actor.id || '—';
+const trim = (value?: string | null) =>
+  typeof value === 'string' ? value.trim() : '';
+
+/** Extrai login do @id Plone (`.../@users/cap` → `cap`). */
+const idFromAtId = (atId?: string) => {
+  const raw = trim(atId);
+  if (!raw) return '';
+  try {
+    const segment = raw.split('/').filter(Boolean).pop() || '';
+    return decodeURIComponent(segment);
+  } catch {
+    return raw.split('/').filter(Boolean).pop() || '';
+  }
+};
+
+/**
+ * Resolve o autor da entrada de histórico (vários formatos do Plone).
+ */
+export const actorLabel = (entry: PloneHistoryEntry | Record<string, unknown>): string => {
+  const e = entry as PloneHistoryEntry & {
+    userid?: string;
+    user?: string | { fullname?: string; username?: string; id?: string; '@id'?: string };
+    creator?: string;
+  };
+
+  const actor = e.actor;
+  if (typeof actor === 'string' && trim(actor)) return trim(actor);
+  if (actor && typeof actor === 'object') {
+    const a = actor as {
+      fullname?: string;
+      username?: string;
+      id?: string;
+      title?: string;
+      '@id'?: string;
+    };
+    const fromObj =
+      trim(a.fullname) ||
+      trim(a.title) ||
+      trim(a.username) ||
+      trim(a.id) ||
+      idFromAtId(a['@id']);
+    if (fromObj) return fromObj;
+  }
+
+  if (trim(e.userid)) return trim(e.userid);
+  if (trim(e.creator)) return trim(e.creator);
+  if (typeof e.user === 'string' && trim(e.user)) return trim(e.user);
+  if (e.user && typeof e.user === 'object') {
+    const u = e.user;
+    const fromUser =
+      trim(u.fullname) || trim(u.username) || trim(u.id) || idFromAtId(u['@id']);
+    if (fromUser) return fromUser;
+  }
+
+  return '';
 };
 
 const actionLabel = (entry: PloneHistoryEntry): string => {
@@ -50,6 +101,38 @@ const formatWhen = (value?: string) => {
   });
 };
 
+const mergeWorkflowActors = (
+  entries: PloneHistoryEntry[],
+  workflowHistory: Array<{
+    action?: string | null;
+    actor?: string;
+    time?: string;
+    title?: string;
+  }>
+): PloneHistoryEntry[] => {
+  if (!workflowHistory.length) return entries;
+  return entries.map((entry) => {
+    if (actorLabel(entry)) return entry;
+    const match = workflowHistory.find((w) => {
+      if (!w.time || !entry.time) return false;
+      const sameTime =
+        Math.abs(new Date(w.time).getTime() - new Date(entry.time).getTime()) < 2000;
+      if (!sameTime) return false;
+      if (entry.transition_title && w.title) {
+        return (
+          entry.transition_title.toLowerCase() === w.title.toLowerCase() ||
+          entry.action === w.action
+        );
+      }
+      return true;
+    });
+    if (match?.actor) {
+      return { ...entry, actor: match.actor };
+    }
+    return entry;
+  });
+};
+
 /**
  * Auditoria de um item via GET @history (somente leitura).
  */
@@ -66,8 +149,12 @@ const HistoryDialog: React.FC<HistoryDialogProps> = ({
     if (!path) return;
     setLoading(true);
     try {
-      const list = await getContentHistory(path);
-      setEntries(list);
+      const [list, workflow] = await Promise.all([
+        getContentHistory(path),
+        getWorkflow(path).catch(() => null),
+      ]);
+      const withActors = mergeWorkflowActors(list, workflow?.history || []);
+      setEntries(withActors);
     } catch (err) {
       toast.error(
         err instanceof ApiError ? err.message : 'Falha ao carregar histórico.'
@@ -124,35 +211,49 @@ const HistoryDialog: React.FC<HistoryDialogProps> = ({
             </p>
           ) : (
             <ol className="relative space-y-0 border-l border-slate-200 pl-4">
-              {entries.map((entry, index) => (
-                <li
-                  key={`${entry.time}-${entry.version ?? index}-${index}`}
-                  className="relative pb-5 last:pb-0"
-                >
-                  <span className="absolute -left-[1.15rem] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-ufac-blue" />
-                  <p className="text-sm font-medium text-slate-900">
-                    {actionLabel(entry)}
-                  </p>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    {actorLabel(entry)} · {formatWhen(entry.time)}
-                  </p>
-                  {entry.comments ? (
-                    <p className="mt-1 text-xs text-slate-600">{entry.comments}</p>
-                  ) : null}
-                  {entry.type ? (
-                    <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-400">
-                      {entry.type === 'workflow'
-                        ? 'Workflow'
-                        : entry.type === 'versioning'
-                          ? 'Versão'
-                          : entry.type}
-                      {entry.version != null && entry.version !== ''
-                        ? ` · v${entry.version}`
-                        : ''}
+              {entries.map((entry, index) => {
+                const author = actorLabel(entry);
+                return (
+                  <li
+                    key={`${entry.time}-${entry.version ?? index}-${index}`}
+                    className="relative pb-5 last:pb-0"
+                  >
+                    <span className="absolute -left-[1.15rem] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-ufac-blue" />
+                    <p className="text-sm font-medium text-slate-900">
+                      {actionLabel(entry)}
                     </p>
-                  ) : null}
-                </li>
-              ))}
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-700">
+                      <User className="h-3.5 w-3.5 shrink-0 text-ufac-blue" aria-hidden />
+                      <span className="font-medium">
+                        {author ? (
+                          <>
+                            <span className="sr-only">Autor: </span>
+                            {author}
+                          </>
+                        ) : (
+                          <span className="font-normal text-slate-400">Autor desconhecido</span>
+                        )}
+                      </span>
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">{formatWhen(entry.time)}</p>
+                    {entry.comments ? (
+                      <p className="mt-1 text-xs text-slate-600">{entry.comments}</p>
+                    ) : null}
+                    {entry.type ? (
+                      <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-400">
+                        {entry.type === 'workflow'
+                          ? 'Workflow'
+                          : entry.type === 'versioning'
+                            ? 'Versão'
+                            : entry.type}
+                        {entry.version != null && entry.version !== ''
+                          ? ` · v${entry.version}`
+                          : ''}
+                      </p>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ol>
           )}
         </div>

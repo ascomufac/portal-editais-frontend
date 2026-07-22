@@ -1,10 +1,14 @@
 import { Button } from '@/components/ui/button';
+import AdminItemHoverCard from '@/components/admin/AdminItemHoverCard';
+import AdminLocationPill from '@/components/admin/AdminLocationPill';
+import AdminRecentItemActions from '@/components/admin/AdminRecentItemActions';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import {
   REVIEW_STATE_LABELS,
   getContentTypeLabel,
   getContentDisplayName,
+  formatContentLocation,
   getReviewState,
   isFolderishContent,
   listFolderContents,
@@ -48,6 +52,15 @@ const formatRelative = (value?: string | null) => {
     day: 'numeric',
     month: 'short',
   });
+};
+
+const recentMetaLine = (item: PloneContentItem, withLocation = false) => {
+  const parts = [
+    getContentTypeLabel(item),
+    withLocation ? formatContentLocation(item) : null,
+    item.Creator || null,
+  ].filter(Boolean);
+  return parts.join(' · ');
 };
 
 const isUnpublished = (item: PloneContentItem) => {
@@ -145,7 +158,7 @@ const recentCardClass = (item: PloneContentItem) => {
   const privateItem = getReviewState(item) === 'private';
   const draft = isUnpublished(item) && !privateItem;
   return cn(
-    'group flex h-11 w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-xl border border-transparent py-1.5 pl-1.5 pr-1 text-left transition',
+    'group flex h-12 w-full min-w-0 items-center gap-1 overflow-hidden rounded-xl border border-transparent py-1.5 pl-1.5 pr-1 text-left transition',
     privateItem
       ? 'bg-slate-100/90 hover:bg-slate-100'
       : draft
@@ -298,25 +311,34 @@ const AdminHome: React.FC = () => {
           <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-100">
             {recent.map((item) => (
               <li key={item['@id']}>
-                <button
-                  type="button"
-                  onClick={() => openRecent(item)}
-                  className="group flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-slate-50 sm:px-4"
+                <AdminRecentItemActions
+                  item={item}
+                  className="group flex w-full items-center gap-2 px-3 py-2.5 transition-colors hover:bg-slate-50 sm:gap-3 sm:px-4"
+                  trailing={
+                    <time className="w-14 shrink-0 text-right text-xs text-slate-500 sm:w-16">
+                      {formatRelative(item.modified)}
+                    </time>
+                  }
                 >
-                  <RecentIcon item={item} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-900">
-                      {getContentDisplayName(item)}
-                    </p>
-                    <p className="truncate text-[11px] text-slate-500">
-                      {getContentTypeLabel(item)}
-                      {item.Creator ? ` · ${item.Creator}` : ''}
-                    </p>
-                  </div>
-                  <time className="shrink-0 text-xs text-slate-500">
-                    {formatRelative(item.modified)}
-                  </time>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => openRecent(item)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <RecentIcon item={item} />
+                    <div className="min-w-0 flex-1">
+                      <AdminItemHoverCard item={item} side="top" align="start">
+                        <p className="truncate text-sm font-medium text-slate-900">
+                          {getContentDisplayName(item)}
+                        </p>
+                      </AdminItemHoverCard>
+                      <p className="truncate text-[11px] text-slate-500">
+                        {recentMetaLine(item)}
+                      </p>
+                    </div>
+                  </button>
+                  <AdminLocationPill item={item} />
+                </AdminRecentItemActions>
               </li>
             ))}
           </ul>
@@ -325,31 +347,50 @@ const AdminHome: React.FC = () => {
             {recent.map((item) => {
               const state = getReviewState(item);
               return (
-                <button
+                <AdminRecentItemActions
                   key={item['@id']}
-                  type="button"
-                  onClick={() => openRecent(item)}
-                  className={recentCardClass(item)}
-                  title={`${getContentDisplayName(item)} · ${formatRelative(item.modified)}`}
+                  item={item}
+                  className={cn(recentCardClass(item), 'group')}
                 >
-                  <RecentIcon item={item} compact />
-                  <div className="flex min-h-8 min-w-0 flex-1 items-center gap-1.5">
-                    <p className="truncate text-sm font-medium leading-none text-slate-900">
-                      {getContentDisplayName(item)}
-                    </p>
-                    {state && state !== 'published' && (
-                      <span
-                        className={cn(
-                          'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white',
-                          state === 'private' ? 'bg-slate-500' : 'bg-slate-400'
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openRecent(item)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openRecent(item);
+                      }
+                    }}
+                    className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-left"
+                  >
+                    <RecentIcon item={item} compact />
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <div className="flex min-w-0 items-center gap-1">
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <AdminItemHoverCard item={item} side="top" align="start">
+                            <p className="truncate text-sm font-medium leading-tight text-slate-900">
+                              {getContentDisplayName(item)}
+                            </p>
+                          </AdminItemHoverCard>
+                        </div>
+                        {state && state !== 'published' && (
+                          <span
+                            className={cn(
+                              'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white',
+                              state === 'private' ? 'bg-slate-500' : 'bg-slate-400'
+                            )}
+                          >
+                            {REVIEW_STATE_LABELS[state] || state}
+                          </span>
                         )}
-                      >
-                        {REVIEW_STATE_LABELS[state] || state}
-                      </span>
-                    )}
+                      </div>
+                      <p className="truncate text-[10px] leading-tight text-slate-500">
+                        {recentMetaLine(item, true)}
+                      </p>
+                    </div>
                   </div>
-                  <MoreVertical className="h-4 w-4 shrink-0 text-slate-400 opacity-0 group-hover:opacity-100" />
-                </button>
+                </AdminRecentItemActions>
               );
             })}
           </div>
