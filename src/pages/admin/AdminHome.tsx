@@ -24,12 +24,10 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
-  Folder,
   LayoutGrid,
   LayoutList,
   Link2,
   Loader2,
-  Lock,
   MoreVertical,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
@@ -331,28 +329,10 @@ const AdminHome: React.FC = () => {
               <Link
                 key={folder['@id']}
                 to={adminContentHref(toPlonePath(folder['@id']))}
-                className="group flex items-center gap-3 rounded-2xl bg-[#e9eef6]/80 px-4 py-3 transition hover:bg-[#e9eef6]"
+                className="group flex items-center gap-3 overflow-visible rounded-2xl bg-[#e9eef6]/80 px-4 py-3 transition hover:bg-[#e9eef6]"
               >
-                <span className="relative shrink-0">
-                  <Folder
-                    className={cn(
-                      'h-6 w-6',
-                      getReviewState(folder) === 'private'
-                        ? 'fill-slate-400/90 text-slate-500'
-                        : 'fill-sky-400 text-sky-500'
-                    )}
-                  />
-                  {getReviewState(folder) === 'private' && (
-                    <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-600">
-                      <Lock
-                        className="h-2 w-2 fill-none text-white"
-                        strokeWidth={2.5}
-                        aria-hidden
-                      />
-                    </span>
-                  )}
-                </span>
-                <div className="min-w-0 flex-1">
+                <AdminDriveIcon item={folder} />
+                <div className="min-w-0 flex-1 overflow-hidden">
                   <p className="flex min-w-0 items-center gap-1.5 truncate font-medium text-slate-900">
                     <span className="truncate">{getContentDisplayName(folder)}</span>
                     <AdminReviewStateBadge state={getReviewState(folder)} />
