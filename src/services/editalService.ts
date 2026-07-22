@@ -45,6 +45,41 @@ export type ProReitoriaId = (typeof PRO_REITORIA_IDS)[number];
 export const isProReitoriaId = (id: string): id is ProReitoriaId =>
   (PRO_REITORIA_IDS as readonly string[]).includes(id);
 
+const normalizeMenuId = (id: string): string =>
+  id
+    .toLowerCase()
+    .replace(/^\/+|\/+$/g, '')
+    .split('/')
+    .pop() || id.toLowerCase();
+
+/**
+ * Pastas fixas na sidebar do admin (abaixo de Editais):
+ * pró-reitorias, CAP e Centro de Idiomas.
+ */
+export const isImportantAdminSidebarFolder = (item: {
+  id?: string;
+  title?: string;
+}): boolean => {
+  const id = normalizeMenuId(item.id || '');
+  const title = (item.title || '').toLowerCase();
+
+  if ((PRO_REITORIA_IDS as readonly string[]).includes(id) || id === 'proplan') {
+    return true;
+  }
+  if (
+    id === 'cap' ||
+    id.includes('colegio') ||
+    title.includes('colégio de aplicação') ||
+    title.includes('colegio de aplicacao')
+  ) {
+    return true;
+  }
+  if (id.includes('idioma') || title.includes('centro de idiomas')) {
+    return true;
+  }
+  return false;
+};
+
 /**
  * Ordem preferencial do menu (depois de "Início", que é fixo na sidebar):
  * pró-reitorias → CAP → Centro de Idiomas → DCE → demais (ordem da API).
@@ -60,13 +95,6 @@ const MENU_PRIORITY_IDS = [
   'centro-idiomas',
   'dce',
 ] as const;
-
-const normalizeMenuId = (id: string): string =>
-  id
-    .toLowerCase()
-    .replace(/^\/+|\/+$/g, '')
-    .split('/')
-    .pop() || id.toLowerCase();
 
 const resolveMenuPriority = (item: { id: string; title?: string }): number => {
   const id = normalizeMenuId(item.id);
