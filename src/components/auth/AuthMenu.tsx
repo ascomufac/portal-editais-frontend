@@ -11,12 +11,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { LayoutDashboard, LogIn, LogOut, User } from 'lucide-react';
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 
 const AuthMenu: React.FC = () => {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
-  const navigate = useNavigate();
+  const router = useRouter();
 
   if (isLoading) {
     return null;
@@ -63,7 +63,7 @@ const AuthMenu: React.FC = () => {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate('/admin')}>
+        <DropdownMenuItem onClick={() => router.push('/admin')}>
           <LayoutDashboard className="mr-2 h-4 w-4" />
           Painel administrativo
         </DropdownMenuItem>
@@ -71,7 +71,7 @@ const AuthMenu: React.FC = () => {
         <DropdownMenuItem
           onClick={async () => {
             await logout();
-            navigate('/');
+            router.push('/');
           }}
         >
           <LogOut className="mr-2 h-4 w-4" />

@@ -4,10 +4,16 @@ import { PdfViewerProvider } from './context/PdfViewerContext';
 import PdfViewerLayout from './layout/PdfViewerLayout';
 import PdfContent from './PdfContent';
 import PdfLoadingError from './PdfLoadingError';
-import { resolvePdfSource, type ResolvedPdfSource } from './utils/pdfUtils';
+import {
+  PDFJS_VERSION,
+  resolvePdfSource,
+  type ResolvedPdfSource,
+} from './utils/pdfUtils';
 
-// Worker na mesma versão do pdfjs embutido no react-pdf
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+// Só no browser — este módulo é carregado com ssr:false
+if (typeof window !== 'undefined') {
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+}
 
 interface PdfViewerProps {
   fileUrl: string;

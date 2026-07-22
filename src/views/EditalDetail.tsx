@@ -1,5 +1,7 @@
+'use client';
+
 import React, { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { usePathname } from 'next/navigation';
 import { useEditalDetails } from '@/hooks/useEditalDetails';
 import MainLayout from '@/layouts/MainLayout';
 import EditalFolderNavigator from '@/components/edital/EditalFolderNavigator';
@@ -18,7 +20,7 @@ const getEditalPathFromLocation = (pathname: string): string | undefined => {
 };
 
 const EditalDetail: React.FC = () => {
-  const { pathname } = useLocation();
+  const pathname = usePathname();
   const fullEditalPath = getEditalPathFromLocation(pathname);
 
   const {

@@ -1,7 +1,9 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Download } from 'lucide-react';
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 
 interface PdfToolbarProps {
   displayFileName: string;
@@ -28,7 +30,7 @@ const PdfToolbar: React.FC<PdfToolbarProps> = ({
   thumbnailToggle,
   variant = 'full',
 }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   if (variant === 'tools') {
     if (!thumbnailToggle && !searchComponent) return null;
@@ -50,7 +52,7 @@ const PdfToolbar: React.FC<PdfToolbarProps> = ({
             variant="ghost"
             size="sm"
             className="-ml-1 h-9 shrink-0 gap-1 px-2 text-gray-600 hover:text-gray-900"
-            onClick={() => navigate(-1)}
+            onClick={() => router.back()}
           >
             <ArrowLeft size={16} className="shrink-0" />
             <span className="hidden sm:inline">Voltar</span>

@@ -7,7 +7,7 @@ import { isPdf } from '@/services/search/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronRight, Copy, Download, Eye, X } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import FileTypeIcon from './icons/FileTypeIcon';
 import SearchIcon from './icons/SearchIcon';
 import SearchFilter, { SearchSection } from './SearchFilter';
@@ -41,7 +41,7 @@ const SearchBar: React.FC<{
   const [showNoResultsMessage, setShowNoResultsMessage] = useState(false);
   const searchBarRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const navigate = useNavigate();
+  const router = useRouter();
   const { toast } = useToast();
   const searchTimeout = useRef<number | null>(null);
 
@@ -135,7 +135,7 @@ const SearchBar: React.FC<{
   };
 
   const handleSeeMoreResults = () => {
-    navigate(`/resultados-busca?q=${encodeURIComponent(searchQuery)}&section=${selectedSection}`);
+    router.push(`/resultados-busca?q=${encodeURIComponent(searchQuery)}&section=${selectedSection}`);
   };
   
   const handleFocus = () => {
@@ -187,7 +187,7 @@ const SearchBar: React.FC<{
   const closeAndGo = (href: string) => {
     setIsOpen(false);
     onRequestClose?.();
-    navigate(href);
+    router.push(href);
   };
 
   const handleOpenResult = (result: SearchResult) => {

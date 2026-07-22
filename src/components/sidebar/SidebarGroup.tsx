@@ -8,7 +8,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { usePathname, useRouter } from 'next/navigation';
 
 interface SidebarGroupProps {
   title: string;
@@ -33,12 +33,12 @@ const SidebarGroup: React.FC<SidebarGroupProps> = ({
 }) => {
   // Local state to track temporary expansion when sidebar is collapsed
   const [isTemporarilyExpanded, setIsTemporarilyExpanded] = useState(false);
-  const location = useLocation();
-  const navigate = useNavigate();
+  const pathname = usePathname();
+  const router = useRouter();
   
   const handleToggle = (e: React.MouseEvent) => {
     // In all cases, navigate to the parent path
-    navigate(parentPath);
+    router.push(parentPath);
     
     // Only toggle the group expansion when sidebar is expanded (not collapsed)
     // And only when explicitly clicking on the accordion trigger
@@ -63,7 +63,7 @@ const SidebarGroup: React.FC<SidebarGroupProps> = ({
 
   // For collapsed sidebar with tooltip
   if (isCollapsed) {
-    const isLinkActive = location.pathname.startsWith(parentPath);
+    const isLinkActive = pathname.startsWith(parentPath);
     
     return (
       <div className="space-y-1 relative">
@@ -71,7 +71,7 @@ const SidebarGroup: React.FC<SidebarGroupProps> = ({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={(e) => navigate(parentPath)}
+                onClick={(e) => router.push(parentPath)}
                 className={cn(
                   "sidebar-link w-full flex items-center justify-center px-2 py-2 text-sm font-medium rounded-md min-h-12 transition-all duration-200",
                   isLinkActive 
@@ -136,7 +136,7 @@ const SidebarGroup: React.FC<SidebarGroupProps> = ({
             e.preventDefault();
             
             // Navigate to parent path first
-            navigate(parentPath);
+            router.push(parentPath);
             
             // Then handle toggling if click is on the arrow or trigger
             if (e.target === e.currentTarget || (e.target as HTMLElement).closest('[data-accordion-trigger="true"]')) {

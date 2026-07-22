@@ -1,3 +1,5 @@
+'use client';
+
 import {
 	Table,
 	TableBody,
@@ -22,7 +24,7 @@ import {
 	UserCircle,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import FileTypeIcon, {
 	FILE_KIND_STYLES,
 	getFileKind,
@@ -64,7 +66,7 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 	isLoading = false,
 }) => {
 	const isMobile = useIsMobile();
-	const navigate = useNavigate();
+	const router = useRouter();
 	const { toast } = useToast();
 	const currentItems = getCurrentFolderContents();
 
@@ -176,7 +178,7 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 
 	const handleViewPdf = (url: string) => {
 		const encodedUrl = encodeURIComponent(url);
-		navigate(`/visualizar-pdf/${encodedUrl}`);
+		router.push(`/visualizar-pdf/${encodedUrl}`);
 	};
 
 	const copyDownloadLink = (url: string) => {

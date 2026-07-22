@@ -16,7 +16,7 @@ const SearchResultItem: React.FC<SearchResultItemProps> = ({
   onResultClick
 }) => {
   // Function to highlight the search term in the text preview
-  const highlightMatchInText = (text: string, searchText: string): JSX.Element => {
+  const highlightMatchInText = (text: string, searchText: string): React.JSX.Element => {
     if (!text || !searchText) return <>{text}</>;
     
     try {

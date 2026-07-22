@@ -22,7 +22,7 @@ interface SearchLoaderProps {
 /**
  * Componente que exibe um indicador de carregamento para buscas
  * @param {SearchLoaderProps} props - Propriedades do componente
- * @returns {JSX.Element} Componente React renderizado
+ * @returns {React.JSX.Element} Componente React renderizado
  */
 const SearchLoader: React.FC<SearchLoaderProps> = ({ 
   className,

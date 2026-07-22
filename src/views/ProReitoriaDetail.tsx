@@ -1,3 +1,5 @@
+'use client';
+
 import EditalCard from '@/components/EditalCard';
 import {
   AssuntosEstudantisIcon,
@@ -13,7 +15,7 @@ import { isProReitoriaId } from '@/services/editalService';
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'next/navigation';
 import NotFound from './NotFound';
 
 const proReitoriasMeta = {

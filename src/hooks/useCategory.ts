@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+'use client';
+
+import { useEffect, useState, createElement } from 'react';
+import { useParams, usePathname } from 'next/navigation';
 import {
   categoryToSetorMap,
   fetchEditaisBySetor,
@@ -11,7 +13,6 @@ import {
 } from '@/services/editalService';
 import { CategoryDataType, EditalType } from '@/types/edital';
 import { FileText, Folder } from 'lucide-react';
-import { createElement } from 'react';
 
 const mapItemToEdital = (item: EditalItem, section: string): EditalType => ({
   id: item['@id'],
@@ -42,11 +43,13 @@ export interface UseCategoryResult extends CategoryDataType {
  * Carrega a categoria/setor a partir da API Plone (sem dados mockados)
  */
 export const useCategory = (setorOverride?: string): UseCategoryResult => {
-  const { category, proReitoriaId } = useParams<{
+  const params = useParams<{
     category?: string;
     proReitoriaId?: string;
   }>();
-  const location = useLocation();
+  const pathname = usePathname();
+  const category = params.category;
+  const proReitoriaId = params.proReitoriaId;
 
   const [state, setState] = useState<UseCategoryResult>({
     title: '',
@@ -57,7 +60,7 @@ export const useCategory = (setorOverride?: string): UseCategoryResult => {
   });
 
   useEffect(() => {
-    const pathSegments = location.pathname.split('/').filter(Boolean);
+    const pathSegments = pathname.split('/').filter(Boolean);
     const pathCategory = pathSegments[0] || '';
 
     let rawKey =
@@ -67,7 +70,6 @@ export const useCategory = (setorOverride?: string): UseCategoryResult => {
       (pathCategory in categoryToSetorMap ? pathCategory : pathSegments[1]) ||
       'prograd';
 
-    // Rotas /graduacao etc. ou IDs Plone diretos
     if (pathCategory in categoryToSetorMap && !setorOverride && !proReitoriaId) {
       rawKey = pathCategory;
     }
@@ -80,12 +82,10 @@ export const useCategory = (setorOverride?: string): UseCategoryResult => {
       setState((prev) => ({ ...prev, isLoading: true, error: null, setorId }));
 
       try {
-        // Filhos diretos do setor no Plone (pastas, collections, etc.)
         let data = await fetchEditaisBySetor(
           `${setorId}?b_size=50&sort_on=modified&sort_order=descending&metadata_fields=created&metadata_fields=modified&metadata_fields=effective&metadata_fields=Creator&metadata_fields=items_total`
         );
 
-        // Fallback via @search se a pasta não retornar items
         if (!data.items?.length) {
           data = await searchSetorItems(setorId, {
             b_size: 50,
@@ -96,7 +96,9 @@ export const useCategory = (setorOverride?: string): UseCategoryResult => {
 
         if (cancelled) return;
 
-        const items = (data.items || []).map((item) => mapItemToEdital(item, setorId));
+        const items = (data.items || []).map((item) =>
+          mapItemToEdital(item, setorId)
+        );
 
         setState({
           id: setorId,
@@ -121,12 +123,12 @@ export const useCategory = (setorOverride?: string): UseCategoryResult => {
     };
 
     load();
-    window.scrollTo(0, 0);
+    if (typeof window !== 'undefined') window.scrollTo(0, 0);
 
     return () => {
       cancelled = true;
     };
-  }, [category, proReitoriaId, location.pathname, setorOverride]);
+  }, [category, proReitoriaId, pathname, setorOverride]);
 
   return state;
 };

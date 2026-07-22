@@ -228,10 +228,10 @@ const AdminLayout: React.FC = () => {
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <Button variant="ghost" size="sm" className="hidden rounded-full sm:inline-flex" asChild>
-            <Link to="/">
+            <a href="/">
               <Home className="mr-1.5 h-4 w-4" />
               Portal
-            </Link>
+            </a>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -270,17 +270,17 @@ const AdminLayout: React.FC = () => {
                 Meus editais
               </DropdownMenuItem>
               <DropdownMenuItem className={adminDriveMenuItemClass} asChild>
-                <Link to="/">
+                <a href="/">
                   <Home className={adminDriveMenuIconClass} />
                   Portal público
-                </Link>
+                </a>
               </DropdownMenuItem>
               <DropdownMenuSeparator className={adminDriveMenuSeparatorClass} />
               <DropdownMenuItem
                 className={adminDriveMenuItemClass}
                 onClick={async () => {
                   await logout();
-                  navigate('/');
+                  window.location.href = '/';
                 }}
               >
                 <LogOut className={adminDriveMenuIconClass} />
