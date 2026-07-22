@@ -4,10 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
-// Páginas
-import CategoryPage from "./pages/CategoryPage";
 import EditalDetail from "./pages/EditalDetail";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -17,16 +15,21 @@ import ProReitorias from "./pages/ProReitorias";
 import SearchResults from "./pages/SearchResults";
 import SetorPage from "./pages/SetorPage";
 
-/**
- * Cliente de consulta para React Query
- */
 const queryClient = new QueryClient();
 
 /**
- * Componente principal da aplicação
- * Define as rotas e provedores de contexto
- * @returns {JSX.Element} Componente React renderizado
+ * Rotas amigáveis antigas → setor Plone correspondente
  */
+const categoryRedirects: Record<string, string> = {
+  graduacao: 'prograd',
+  'pos-graduacao': 'propeg',
+  extensao: 'proex',
+  estudantis: 'proaes',
+  pessoas: 'prodgep',
+  idiomas: 'centro-idiomas',
+  colegio: 'colegio-de-aplicacao',
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -38,19 +41,19 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/pro-reitorias" element={<ProReitorias />} />
             <Route path="/pro-reitorias/:proReitoriaId" element={<ProReitoriaDetail />} />
-            <Route path="/graduacao" element={<CategoryPage />} />
-            <Route path="/pos-graduacao" element={<CategoryPage />} />
-            <Route path="/extensao" element={<CategoryPage />} />
-            <Route path="/estudantis" element={<CategoryPage />} />
-            <Route path="/pessoas" element={<CategoryPage />} />
-            <Route path="/idiomas" element={<CategoryPage />} />
-            <Route path="/colegio" element={<CategoryPage />} />
+
+            {Object.entries(categoryRedirects).map(([from, to]) => (
+              <Route
+                key={from}
+                path={`/${from}`}
+                element={<Navigate to={`/setor/${to}`} replace />}
+              />
+            ))}
+
             <Route path="/resultados-busca" element={<SearchResults />} />
-            <Route path="/edital/:setor/:editalId/*" element={<EditalDetail />} />
+            <Route path="/edital/*" element={<EditalDetail />} />
             <Route path="/visualizar-pdf/:pdfUrl" element={<PdfViewerPage />} />
-            {/* Rota dinâmica para setores */}
-            <Route path="setor/:setor/:page?" element={<SetorPage />} />
-            {/* ADICIONE TODAS AS ROTAS PERSONALIZADAS ACIMA DA ROTA CURINGA "*" */}
+            <Route path="/setor/:setor/:page?" element={<SetorPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AnimatePresence>

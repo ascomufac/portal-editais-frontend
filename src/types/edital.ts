@@ -15,6 +15,7 @@ export type EditalType = {
   items_total?: number;
   is_folderish?: boolean;
   '@type'?: string;
+  htmlContent?: string;
 };
 
 export type EditalDocumentType = {

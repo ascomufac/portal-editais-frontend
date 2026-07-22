@@ -1,5 +1,8 @@
 import CategoryHeader from '@/components/category/CategoryHeader';
 import EditalCard from '@/components/EditalCard';
+import DateRangeFilter, {
+	DateRangeFilterValue,
+} from '@/components/filters/DateRangeFilter';
 import PdfIcon from '@/components/icons/PdfIcon';
 import SearchBar from '@/components/SearchBar';
 import {
@@ -12,7 +15,14 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MainLayout from '@/layouts/MainLayout';
-import { EditalResponse, fetchEditaisBySetor } from '@/services/editalService';
+import {
+	appendDateRangeParams,
+	EditalResponse,
+	fetchEditaisBySetor,
+	setorTitles,
+	toEditalHref,
+	toSitePath,
+} from '@/services/editalService';
 import { motion } from 'framer-motion';
 import {
 	AlignJustify,
@@ -29,7 +39,7 @@ import {
 	LayoutGrid,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 /**
  * Função utilitária para formatar a data no formato pt-BR
@@ -76,6 +86,7 @@ const SetorPage: React.FC = () => {
 	const [categoryData, setCategoryData] = useState<EditalResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [setorTitle, setSetorTitle] = useState<string>('');
 	const [limit, setLimit] = useState<number>(20);
 	const [start, setStart] = useState<number>(0);
 	const [totalItems, setTotalItems] = useState<number>(0);
@@ -89,12 +100,29 @@ const SetorPage: React.FC = () => {
 		'ascending' | 'descending'
 	>('descending');
 	const [cardLayout, setCardLayout] = useState<'card' | 'line'>('card');
+	const [dateFilter, setDateFilter] = useState<DateRangeFilterValue>({
+		field: 'modified',
+		from: '',
+		to: '',
+	});
 
 	const navigate = useNavigate();
-	const location = useLocation();
 
 	// Extração do número da página da URL
 	const getPageFromURL = () => Number(page ?? '1');
+
+	const goToFirstPage = () => {
+		if (setor && getPageFromURL() !== 1) {
+			navigate(`/setor/${setor}/1`, { replace: true });
+		} else {
+			setStart(0);
+		}
+	};
+
+	const handleDateFilterChange = (next: DateRangeFilterValue) => {
+		setDateFilter(next);
+		goToFirstPage();
+	};
 
 	useEffect(() => {
 		const currentPage = getPageFromURL();
@@ -111,13 +139,16 @@ const SetorPage: React.FC = () => {
 		setLimit(20);
 		setTotalItems(0);
 		setCategoryData(null);
+		setSetorTitle('');
+		setError(null);
+		setDateFilter({ field: 'modified', from: '', to: '' });
 	}, [setor]);
 
 	useEffect(() => {
 		if (start >= 0 && !loading) {
 			const timer = setTimeout(() => {
 				window.scrollTo({ top: 0, behavior: 'smooth' });
-			}, 300); // após o fim do carregamento
+			}, 300);
 
 			return () => clearTimeout(timer);
 		}
@@ -142,27 +173,49 @@ const SetorPage: React.FC = () => {
 		},
 	};
 
-	// Formatar o título do setor para exibição (primeira letra maiúscula)
-	const formatarTituloSetor = (setor: string): string => {
-		if (!setor) return '';
-
-		// Remover hífens e underscores se houver
-		const setorLimpo = setor.replace(/-|_/g, ' ');
-
-		// Capitalizar primeira letra de cada palavra
-		return setorLimpo
+	const formatarTituloSetor = (setorId: string): string => {
+		if (!setorId) return '';
+		if (setorTitles[setorId]) return setorTitles[setorId];
+		return setorId
+			.replace(/-|_/g, ' ')
 			.split(' ')
 			.map((palavra) => palavra.charAt(0).toUpperCase() + palavra.slice(1))
 			.join(' ');
 	};
 
-	const tituloSetor = formatarTituloSetor(setor || '');
+	const tituloSetor = setorTitle || formatarTituloSetor(setor || '');
 
 	useEffect(() => {
 		const fetchData = async () => {
 			if (!setor) return;
 			setLoading(true);
 			try {
+				// Metadados do setor (título / Link)
+				const meta = await fetchEditaisBySetor(setor);
+				setSetorTitle(meta.title || formatarTituloSetor(setor));
+
+				if (meta['@type'] === 'Link') {
+					const remoteUrl = (meta as EditalResponse & { remoteUrl?: string }).remoteUrl;
+					if (remoteUrl?.includes('www3.ufac.br')) {
+						navigate(toEditalHref(remoteUrl), { replace: true });
+						return;
+					}
+					if (remoteUrl) {
+						window.location.href = remoteUrl;
+						return;
+					}
+				}
+
+				// Documentos com texto HTML (sem listagem) → página de edital
+				if (
+					meta['@type'] === 'Document' &&
+					(!meta.items || meta.items.length === 0) &&
+					meta.text
+				) {
+					navigate(toEditalHref(toSitePath(meta['@id'])), { replace: true });
+					return;
+				}
+
 				const searchParams = new URLSearchParams();
 				if (filterType !== 'All') {
 					searchParams.append('portal_type', filterType);
@@ -179,13 +232,19 @@ const SetorPage: React.FC = () => {
 				searchParams.append('metadata_fields', 'effective');
 				searchParams.append('metadata_fields', 'items_total');
 
+				appendDateRangeParams(
+					searchParams,
+					dateFilter.field,
+					dateFilter.from,
+					dateFilter.to
+				);
+
 				const endpoint = `${setor}/@search?${searchParams.toString()}`;
 				const data = await fetchEditaisBySetor(endpoint);
 
 				const total = data.items_total || data.batching?.total || 0;
 				const items = data.items || [];
 
-				// Redireciona para última página válida caso a página atual não tenha itens
 				if (items.length === 0 && total > 0) {
 					const lastPage = Math.ceil(total / limit);
 					const currentPage = getPageFromURL();
@@ -213,7 +272,7 @@ const SetorPage: React.FC = () => {
 			}
 		};
 		fetchData();
-	}, [setor, filterType, sortOrder, sortDirection, start, limit]);
+	}, [setor, filterType, sortOrder, sortDirection, start, limit, dateFilter]);
 
 	const handleLoadMore = () => {
 		setStart((prevStart) => prevStart + limit);
@@ -407,6 +466,13 @@ const SetorPage: React.FC = () => {
 									)}
 								</button>
 							</div>
+						</div>
+
+						<div className='mb-6'>
+							<DateRangeFilter
+								value={dateFilter}
+								onChange={handleDateFilterChange}
+							/>
 						</div>
 
 						<div

@@ -37,8 +37,12 @@ const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
     updateState
   } = usePdfViewerContext();
 
-  const { fileUrl } = state;
-  const displayFileName = fileName || fileUrl.split('/').pop() || 'Documento';
+  const { fileUrl, downloadUrl } = state;
+  const displayFileName =
+    fileName ||
+    (downloadUrl.startsWith('blob:')
+      ? 'Documento'
+      : downloadUrl.split('/').pop()?.replace(/@@download.*/, '') || 'Documento');
 
   // Adiciona um novo estado para controlar a visibilidade das miniaturas
   const toggleThumbnails = () => {
@@ -55,7 +59,7 @@ const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
         setScale={(scale) => updateState({ scale })}
         fitType={state.fitType}
         setFitType={(fitType) => updateState({ fitType })}
-        fileUrl={fileUrl}
+        fileUrl={downloadUrl || fileUrl}
         searchComponent={
           <PdfSearch 
             scrollToPage={scrollToPage} 
@@ -64,25 +68,13 @@ const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
             onSearchResults={handleSearchResults}
           />
         }
-        // Pode ativar e desativar a lista de páginas 
-        // thumbnailToggle={
-        //   <Button 
-        //     variant="outline" 
-        //     size="sm"
-        //     onClick={toggleThumbnails}
-        //     className={state.showThumbnails ? "bg-gray-100" : ""}
-        //   >
-        //     <StickyNote className="h-4 w-4 mr-1" />
-        //     Páginas
-        //   </Button>
-        // }
       />
 
       <div className="w-full relative overflow-hidden flex">
         <PdfLoadingError 
           loading={state.loading}
           error={state.error}
-          fileUrl={fileUrl}
+          fileUrl={downloadUrl || fileUrl}
         />
         
         {!state.error && (

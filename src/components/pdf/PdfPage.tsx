@@ -119,6 +119,12 @@ const PdfPage: React.FC<PdfPageProps> = ({
     };
   }, [pageNumber, scale, rotation]);
   
+  // Marca d'água em grade, proporcional ao zoom
+  const watermarkWidth = Math.max(72, Math.round(200 * scale));
+  const watermarkGap = Math.max(24, Math.round(48 * scale));
+  // Cobertura suficiente para A4 em qualquer zoom (grade 4x5)
+  const watermarkTiles = Array.from({ length: 20 }, (_, i) => i);
+
   return (
     <div 
     ref={pageRef}
@@ -126,7 +132,6 @@ const PdfPage: React.FC<PdfPageProps> = ({
     style={{ maxWidth: 'var(--pdf-page-max-width, 100%)', position: 'relative' }}
     data-page-number={pageNumber}
     >
-      <UfacLogo clasName='absolute bottom-1 z-10 w-40 h-10 opacity-20 right-8 mb-2' />
       <Page 
         key={`page_${pageNumber}_${rotation}_${scale}_${fitType}`}
         pageNumber={pageNumber} 
@@ -153,6 +158,27 @@ const PdfPage: React.FC<PdfPageProps> = ({
           // console.log(`Page ${pageNumber} loaded successfully`);
         }}
       />
+      {/* Marca d'água repetida em grade, escala com o zoom */}
+      <div
+        className="pointer-events-none absolute inset-0 z-10 overflow-hidden rounded-2xl"
+        aria-hidden="true"
+      >
+        <div
+          className="absolute inset-0 flex flex-wrap content-around justify-around opacity-25"
+          style={{
+            gap: watermarkGap,
+            padding: watermarkGap,
+            transform: 'rotate(-18deg) scale(1.25)',
+            transformOrigin: 'center center',
+          }}
+        >
+          {watermarkTiles.map((i) => (
+            <div key={i} style={{ width: watermarkWidth }} className="shrink-0">
+              <UfacLogo clasName="h-auto w-full" />
+            </div>
+          ))}
+        </div>
+      </div>
       </div>
   );
 };

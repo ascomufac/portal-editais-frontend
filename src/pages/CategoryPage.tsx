@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import MainLayout from '@/layouts/MainLayout';
@@ -6,45 +5,36 @@ import SearchBar from '@/components/SearchBar';
 import { useCategory } from '@/hooks/useCategory';
 import EditalsList from '@/components/category/EditalsList';
 import CategoryHeader from '@/components/category/CategoryHeader';
+import { Loader2 } from 'lucide-react';
 
-/**
- * Variantes de animação para o contêiner
- */
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
+    transition: { staggerChildren: 0.1 },
+  },
 };
 
-/**
- * Variantes de animação para os itens
- */
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5 }
-  }
+    transition: { duration: 0.5 },
+  },
 };
 
-/**
- * Página de categoria que exibe editais relacionados a uma categoria específica
- * @returns {JSX.Element} Componente React renderizado
- */
 const CategoryPage: React.FC = () => {
   const currentCategory = useCategory();
-  
+
   useEffect(() => {
-    console.log('CategoryPage renderizando com título:', currentCategory.title);
+    if (currentCategory.title) {
+      document.title = `${currentCategory.title} | Portal de Editais UFAC`;
+    }
   }, [currentCategory.title]);
-  
+
   return (
-    <MainLayout pageTitle={currentCategory.title}>
+    <MainLayout pageTitle={currentCategory.title || 'Categoria'}>
       <motion.div
         initial="hidden"
         animate="visible"
@@ -56,10 +46,21 @@ const CategoryPage: React.FC = () => {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <CategoryHeader title={currentCategory.title} />
+          <CategoryHeader title={currentCategory.title || 'Carregando...'} />
         </motion.div>
 
-        <EditalsList editais={currentCategory.editais} />
+        {currentCategory.isLoading ? (
+          <div className="flex items-center justify-center py-16 text-gray-500 gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Carregando editais...
+          </div>
+        ) : currentCategory.error ? (
+          <div className="text-center p-8 text-red-600 bg-white rounded-lg shadow-sm">
+            {currentCategory.error}
+          </div>
+        ) : (
+          <EditalsList editais={currentCategory.editais} />
+        )}
       </motion.div>
     </MainLayout>
   );
