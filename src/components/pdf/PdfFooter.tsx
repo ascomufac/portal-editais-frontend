@@ -91,45 +91,47 @@ const PdfFooter: React.FC<PdfFooterProps> = ({
         </Button>
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-9 w-9 rounded-full"
-          disabled={!canGoPrev}
-          onClick={() => goToPage(pageNumber - 1)}
-          aria-label="Página anterior"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </Button>
+      {total > 1 && (
+        <div className="flex items-center gap-1 sm:gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 rounded-full"
+            disabled={!canGoPrev}
+            onClick={() => goToPage(pageNumber - 1)}
+            aria-label="Página anterior"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
 
-        <form onSubmit={jumpToPage} className="flex items-center gap-1">
-          <Input
-            type="text"
-            inputMode="numeric"
-            value={pageInputValue}
-            onChange={(e) => setPageInputValue(e.target.value)}
-            className="h-9 w-11 text-center text-sm sm:w-14"
-            aria-label="Número da página"
-          />
-          <span className="whitespace-nowrap text-xs text-gray-500 sm:text-sm">
-            de {total}
-          </span>
-        </form>
+          <form onSubmit={jumpToPage} className="flex items-center gap-1">
+            <Input
+              type="text"
+              inputMode="numeric"
+              value={pageInputValue}
+              onChange={(e) => setPageInputValue(e.target.value)}
+              className="h-9 w-11 text-center text-sm sm:w-14"
+              aria-label="Número da página"
+            />
+            <span className="whitespace-nowrap text-xs text-gray-500 sm:text-sm">
+              de {total}
+            </span>
+          </form>
 
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-9 w-9 rounded-full"
-          disabled={!canGoNext}
-          onClick={() => goToPage(pageNumber + 1)}
-          aria-label="Próxima página"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </Button>
-      </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 rounded-full"
+            disabled={!canGoNext}
+            onClick={() => goToPage(pageNumber + 1)}
+            aria-label="Próxima página"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

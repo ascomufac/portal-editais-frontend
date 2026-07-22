@@ -11,10 +11,14 @@ import { cn } from '@/lib/utils';
 import {
   ApiError,
   REVIEW_STATE_LABELS,
-  TYPE_LABELS,
-  adminContentHref,
+  getContentTypeLabel,
+  getContentDisplayName,
   getReviewState,
+  isFolderishContent,
   listRecentActivity,
+  parentPlonePath,
+  resolveContentType,
+  adminContentHref,
   toPlonePath,
   type PloneContentItem,
 } from '@/services/ploneContentService';
@@ -32,10 +36,11 @@ import {
   User,
   X,
 } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const ACTIVITY_VIEW_KEY = 'ufac-admin-activity-view';
+const PAGE_SIZE = 60;
 
 const TYPE_FILTERS = [
   { id: 'all', label: 'Todos' },
@@ -53,14 +58,6 @@ const STATE_FILTERS = [
   { id: 'published', label: 'Publicados' },
 ] as const;
 
-const isFolderish = (item: PloneContentItem) =>
-  Boolean(
-    item.is_folderish ||
-      item['@type'] === 'Folder' ||
-      item['@type'] === 'Collection' ||
-      item['@type'] === 'Plone Site'
-  );
-
 const isUnpublished = (item: PloneContentItem) => {
   const state = getReviewState(item);
   return Boolean(state && state !== 'published');
@@ -71,13 +68,14 @@ const ActivityIcon: React.FC<{ item: PloneContentItem; compact?: boolean }> = ({
   compact = false,
 }) => {
   const privateItem = getReviewState(item) === 'private';
-  const type = item['@type'];
+  const type = resolveContentType(item);
+  const folderish = isFolderishContent(item);
   const box = compact
     ? 'flex h-8 w-8 shrink-0 items-center justify-center'
     : 'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg';
   const icon = 'h-5 w-5';
 
-  if (type === 'Folder' || type === 'Plone Site' || type === 'Collection') {
+  if (folderish || type === 'Folder' || type === 'Plone Site' || type === 'Collection') {
     return (
       <span className={cn(box, 'relative', !compact && (privateItem ? 'bg-slate-100' : 'bg-sky-50'))}>
         <Folder
@@ -115,15 +113,34 @@ const ActivityIcon: React.FC<{ item: PloneContentItem; compact?: boolean }> = ({
       </span>
     );
   }
+  if (type === 'File' || type === 'Image') {
+    return (
+      <span
+        className={cn(
+          box,
+          'relative',
+          !compact && (privateItem ? 'bg-slate-100' : 'bg-red-50 text-red-500')
+        )}
+      >
+        <FileText className={cn(icon, privateItem ? 'text-slate-500' : 'text-red-500')} />
+        {privateItem && (
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-600">
+            <Lock className="h-2 w-2 fill-none text-white" strokeWidth={2.5} aria-hidden />
+          </span>
+        )}
+      </span>
+    );
+  }
+  // Document e demais: azul (diferente de Arquivo vermelho)
   return (
     <span
       className={cn(
         box,
         'relative',
-        !compact && (privateItem ? 'bg-slate-100' : 'bg-red-50 text-red-500')
+        !compact && (privateItem ? 'bg-slate-100' : 'bg-ufac-lightBlue text-ufac-blue')
       )}
     >
-      <FileText className={cn(icon, privateItem ? 'text-slate-500' : 'text-red-500')} />
+      <FileText className={cn(icon, privateItem ? 'text-slate-500' : 'text-ufac-blue')} />
       {privateItem && (
         <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-600">
           <Lock className="h-2 w-2 fill-none text-white" strokeWidth={2.5} aria-hidden />
@@ -171,7 +188,9 @@ const formatRelative = (value?: string | null) => {
 const AdminActivity: React.FC = () => {
   const navigate = useNavigate();
   const [items, setItems] = useState<PloneContentItem[]>([]);
+  const [itemsTotal, setItemsTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [stateFilter, setStateFilter] = useState<string>('all');
@@ -187,6 +206,9 @@ const AdminActivity: React.FC = () => {
     }
   });
 
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const fetchLock = useRef(false);
+
   const setView = (mode: 'list' | 'grid') => {
     setViewMode(mode);
     try {
@@ -196,50 +218,116 @@ const AdminActivity: React.FC = () => {
     }
   };
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { items: list } = await listRecentActivity({
-        b_size: 60,
-        Creator: creatorFilter || undefined,
-        portal_type: typeFilter === 'all' ? undefined : typeFilter,
-        review_state: stateFilter === 'all' ? undefined : stateFilter,
+  const mergeCreators = useCallback((list: PloneContentItem[]) => {
+    setKnownCreators((prev) => {
+      const next = new Set(prev);
+      list.forEach((item) => {
+        if (item.Creator) next.add(item.Creator);
       });
-      setItems(list);
-      setKnownCreators((prev) => {
-        const next = new Set(prev);
-        list.forEach((item) => {
-          if (item.Creator) next.add(item.Creator);
-        });
-        return Array.from(next).sort((a, b) =>
-          a.localeCompare(b, 'pt-BR', { sensitivity: 'base' })
-        );
-      });
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : 'Não foi possível carregar as interações.'
+      return Array.from(next).sort((a, b) =>
+        a.localeCompare(b, 'pt-BR', { sensitivity: 'base' })
       );
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [creatorFilter, typeFilter, stateFilter]);
+    });
+  }, []);
+
+  const loadPage = useCallback(
+    async (bStart: number, append: boolean) => {
+      if (fetchLock.current) return;
+      fetchLock.current = true;
+      if (append) setLoadingMore(true);
+      else {
+        setLoading(true);
+        setError(null);
+      }
+      try {
+        const { items: list, items_total } = await listRecentActivity({
+          b_size: PAGE_SIZE,
+          b_start: bStart,
+          Creator: creatorFilter || undefined,
+          portal_type: typeFilter === 'all' ? undefined : typeFilter,
+          review_state: stateFilter === 'all' ? undefined : stateFilter,
+        });
+        setItemsTotal(items_total);
+        setItems((prev) => {
+          if (!append) return list;
+          const seen = new Set(prev.map((i) => i['@id']));
+          const extra = list.filter((i) => !seen.has(i['@id']));
+          return [...prev, ...extra];
+        });
+        mergeCreators(list);
+      } catch (err) {
+        if (!append) {
+          setError(
+            err instanceof ApiError
+              ? err.message
+              : 'Não foi possível carregar as interações.'
+          );
+          setItems([]);
+          setItemsTotal(0);
+        }
+      } finally {
+        fetchLock.current = false;
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [creatorFilter, typeFilter, stateFilter, mergeCreators]
+  );
+
+  const reload = useCallback(() => {
+    setItems([]);
+    setItemsTotal(0);
+    void loadPage(0, false);
+  }, [loadPage]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    reload();
+  }, [reload]);
+
+  const hasMore = items.length < itemsTotal;
+
+  const loadMore = useCallback(() => {
+    if (!hasMore || loading || loadingMore || fetchLock.current) return;
+    void loadPage(items.length, true);
+  }, [hasMore, loading, loadingMore, loadPage, items.length]);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || loading || items.length === 0) return;
+
+    let root: Element | null = null;
+    let parent: HTMLElement | null = node.parentElement;
+    while (parent) {
+      const { overflowY } = getComputedStyle(parent);
+      if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') {
+        root = parent;
+        break;
+      }
+      parent = parent.parentElement;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) loadMore();
+      },
+      { root, rootMargin: '320px 0px', threshold: 0 }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [loadMore, loading, items.length, viewMode]);
 
   const openItem = (item: PloneContentItem) => {
     const path = toPlonePath(item['@id']);
-    if (isFolderish(item)) {
+    if (isFolderishContent(item)) {
       navigate(adminContentHref(path));
       return;
     }
-    const parent = path.includes('/') ? path.split('/').slice(0, -1).join('/') : '';
-    navigate(adminContentHref(parent));
+    // Adia a navegação para o mouseup/click terminar (evita abrir modal na pasta).
+    window.setTimeout(() => {
+      navigate(adminContentHref(parentPlonePath(path)), {
+        state: { focusPath: path },
+      });
+    }, 0);
   };
 
   const applyCreator = (value: string) => {
@@ -271,6 +359,34 @@ const AdminActivity: React.FC = () => {
     [typeFilter]
   );
 
+  const totalLabel = itemsTotal.toLocaleString('pt-BR');
+  const shownLabel = items.length.toLocaleString('pt-BR');
+
+  const listFooter = (
+    <div ref={sentinelRef} className="flex flex-col items-center gap-2 py-6">
+      {loadingMore && (
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Carregando mais…
+        </div>
+      )}
+      {!loadingMore && hasMore && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="rounded-full"
+          onClick={loadMore}
+        >
+          Carregar mais
+        </Button>
+      )}
+      {!hasMore && items.length > 0 && (
+        <p className="text-xs text-slate-400">Fim da lista · {totalLabel} itens</p>
+      )}
+    </div>
+  );
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -288,7 +404,7 @@ const AdminActivity: React.FC = () => {
           variant="outline"
           size="sm"
           className="rounded-full"
-          onClick={() => load()}
+          onClick={() => reload()}
           disabled={loading}
         >
           <RefreshCw className={cn('mr-1.5 h-4 w-4', loading && 'animate-spin')} />
@@ -426,12 +542,16 @@ const AdminActivity: React.FC = () => {
             </Button>
           </div>
           <span className="text-xs text-slate-500">
-            {loading ? '…' : `${items.length} item${items.length === 1 ? '' : 's'}`}
+            {loading && items.length === 0
+              ? '…'
+              : itemsTotal > 0
+                ? `${shownLabel} de ${totalLabel}`
+                : `${shownLabel} item${items.length === 1 ? '' : 's'}`}
           </span>
         </div>
       </div>
 
-      {loading ? (
+      {loading && items.length === 0 ? (
         <div className="flex min-h-[30vh] items-center justify-center gap-2 text-slate-500">
           <Loader2 className="h-5 w-5 animate-spin" />
           Carregando…
@@ -440,7 +560,7 @@ const AdminActivity: React.FC = () => {
         <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-red-700">
           <p className="font-medium">Erro ao carregar</p>
           <p className="mt-1 text-sm">{error}</p>
-          <Button variant="outline" size="sm" className="mt-4" onClick={() => load()}>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => reload()}>
             Tentar de novo
           </Button>
         </div>
@@ -451,77 +571,83 @@ const AdminActivity: React.FC = () => {
             : 'Nenhuma interação recente encontrada.'}
         </div>
       ) : viewMode === 'grid' ? (
-        <div className="grid w-full grid-cols-1 gap-2 min-[520px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4">
-          {items.map((item) => {
-            const state = getReviewState(item);
-            return (
-              <button
-                key={item['@id']}
-                type="button"
-                onClick={() => openItem(item)}
-                className={activityCardClass(item)}
-                title={`${item.title || item.id} · ${formatRelative(item.modified)}`}
-              >
-                <ActivityIcon item={item} compact />
-                <div className="flex min-h-8 min-w-0 flex-1 items-center gap-1.5">
-                  <p className="truncate text-sm font-medium leading-none text-slate-900">
-                    {item.title || item.id}
-                  </p>
-                  {state && state !== 'published' && (
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white',
-                        state === 'private' ? 'bg-slate-500' : 'bg-slate-400'
-                      )}
-                    >
-                      {REVIEW_STATE_LABELS[state] || state}
-                    </span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-100">
-          {items.map((item) => {
-            const state = getReviewState(item);
-            return (
-              <li key={item['@id']}>
+        <>
+          <div className="grid w-full grid-cols-1 gap-2 min-[520px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4">
+            {items.map((item) => {
+              const state = getReviewState(item);
+              return (
                 <button
+                  key={item['@id']}
                   type="button"
                   onClick={() => openItem(item)}
-                  className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-slate-50 sm:px-4"
+                  className={activityCardClass(item)}
+                  title={`${getContentDisplayName(item)} · ${formatRelative(item.modified)}`}
                 >
-                  <ActivityIcon item={item} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                      <p className="truncate text-sm font-medium text-slate-900">
-                        {item.title || item.id}
-                      </p>
-                      {state === 'private' && (
-                        <span className="shrink-0 rounded-full bg-slate-500 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
-                          {REVIEW_STATE_LABELS.private}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-0.5 truncate text-xs text-slate-500">
-                      {TYPE_LABELS[item['@type']] || item['@type']}
-                      {item.Creator ? ` · ${item.Creator}` : ''}
+                  <ActivityIcon item={item} compact />
+                  <div className="flex min-h-8 min-w-0 flex-1 items-center gap-1.5">
+                    <p className="truncate text-sm font-medium leading-none text-slate-900">
+                      {getContentDisplayName(item)}
                     </p>
+                    {state && state !== 'published' && (
+                      <span
+                        className={cn(
+                          'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white',
+                          state === 'private' ? 'bg-slate-500' : 'bg-slate-400'
+                        )}
+                      >
+                        {REVIEW_STATE_LABELS[state] || state}
+                      </span>
+                    )}
                   </div>
-                  <time
-                    className="shrink-0 text-xs text-slate-500"
-                    dateTime={item.modified || undefined}
-                    title={item.modified || undefined}
-                  >
-                    {formatRelative(item.modified)}
-                  </time>
                 </button>
-              </li>
-            );
-          })}
-        </ul>
+              );
+            })}
+          </div>
+          {listFooter}
+        </>
+      ) : (
+        <>
+          <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-100">
+            {items.map((item) => {
+              const state = getReviewState(item);
+              return (
+                <li key={item['@id']}>
+                  <button
+                    type="button"
+                    onClick={() => openItem(item)}
+                    className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-slate-50 sm:px-4"
+                  >
+                    <ActivityIcon item={item} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <p className="truncate text-sm font-medium text-slate-900">
+                          {getContentDisplayName(item)}
+                        </p>
+                        {state === 'private' && (
+                          <span className="shrink-0 rounded-full bg-slate-500 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
+                            {REVIEW_STATE_LABELS.private}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-slate-500">
+                        {getContentTypeLabel(item)}
+                        {item.Creator ? ` · ${item.Creator}` : ''}
+                      </p>
+                    </div>
+                    <time
+                      className="shrink-0 text-xs text-slate-500"
+                      dateTime={item.modified || undefined}
+                      title={item.modified || undefined}
+                    >
+                      {formatRelative(item.modified)}
+                    </time>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          {listFooter}
+        </>
       )}
     </div>
   );

@@ -10,6 +10,11 @@ interface PdfToolbarProps {
   thumbnailToggle?: React.ReactNode;
   /** No desktop, zoom/nav ficam no footer — busca permanece aqui */
   compact?: boolean;
+  /**
+   * full: voltar + nome + tools + baixar (página pública)
+   * tools: só miniaturas + busca (quando o shell pai já tem chrome)
+   */
+  variant?: 'full' | 'tools';
 }
 
 /**
@@ -21,8 +26,21 @@ const PdfToolbar: React.FC<PdfToolbarProps> = ({
   fileUrl,
   searchComponent,
   thumbnailToggle,
+  variant = 'full',
 }) => {
   const navigate = useNavigate();
+
+  if (variant === 'tools') {
+    if (!thumbnailToggle && !searchComponent) return null;
+    return (
+      <div className="z-10 flex w-full shrink-0 border-b border-gray-100 bg-white px-2 py-1.5 sm:px-3">
+        <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
+          {thumbnailToggle}
+          {searchComponent}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="z-10 flex w-full shrink-0 border-b border-gray-200 bg-gray-50 px-2 py-2 sm:px-4">

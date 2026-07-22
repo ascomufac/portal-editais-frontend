@@ -3,11 +3,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import {
   REVIEW_STATE_LABELS,
-  TYPE_LABELS,
-  adminContentHref,
+  getContentTypeLabel,
+  getContentDisplayName,
   getReviewState,
+  isFolderishContent,
   listFolderContents,
   listRecentActivity,
+  parentPlonePath,
+  resolveContentType,
+  adminContentHref,
   toPlonePath,
   type PloneContentItem,
 } from '@/services/ploneContentService';
@@ -27,14 +31,6 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 const RECENT_VIEW_KEY = 'ufac-admin-home-recent-view';
-
-const isFolder = (item: PloneContentItem) =>
-  Boolean(
-    item.is_folderish ||
-      item['@type'] === 'Folder' ||
-      item['@type'] === 'Collection' ||
-      item['@type'] === 'Plone Site'
-  );
 
 const formatRelative = (value?: string | null) => {
   if (!value) return '—';
@@ -64,13 +60,14 @@ const RecentIcon: React.FC<{ item: PloneContentItem; compact?: boolean }> = ({
   compact = false,
 }) => {
   const privateItem = getReviewState(item) === 'private';
-  const type = item['@type'];
+  const type = resolveContentType(item);
+  const folderish = isFolderishContent(item);
   const box = compact
     ? 'flex h-8 w-8 shrink-0 items-center justify-center'
     : 'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg';
   const icon = 'h-5 w-5';
 
-  if (type === 'Folder' || type === 'Plone Site' || type === 'Collection') {
+  if (folderish || type === 'Folder' || type === 'Plone Site' || type === 'Collection') {
     return (
       <span className={cn(box, 'relative', !compact && (privateItem ? 'bg-slate-100' : 'bg-sky-50'))}>
         <Folder
@@ -108,15 +105,33 @@ const RecentIcon: React.FC<{ item: PloneContentItem; compact?: boolean }> = ({
       </span>
     );
   }
+  if (type === 'File' || type === 'Image') {
+    return (
+      <span
+        className={cn(
+          box,
+          'relative',
+          !compact && (privateItem ? 'bg-slate-100' : 'bg-red-50 text-red-500')
+        )}
+      >
+        <FileText className={cn(icon, privateItem ? 'text-slate-500' : 'text-red-500')} />
+        {privateItem && (
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-600">
+            <Lock className="h-2 w-2 fill-none text-white" strokeWidth={2.5} aria-hidden />
+          </span>
+        )}
+      </span>
+    );
+  }
   return (
     <span
       className={cn(
         box,
         'relative',
-        !compact && (privateItem ? 'bg-slate-100' : 'bg-red-50 text-red-500')
+        !compact && (privateItem ? 'bg-slate-100' : 'bg-ufac-lightBlue text-ufac-blue')
       )}
     >
-      <FileText className={cn(icon, privateItem ? 'text-slate-500' : 'text-red-500')} />
+      <FileText className={cn(icon, privateItem ? 'text-slate-500' : 'text-ufac-blue')} />
       {privateItem && (
         <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-600">
           <Lock className="h-2 w-2 fill-none text-white" strokeWidth={2.5} aria-hidden />
@@ -180,7 +195,7 @@ const AdminHome: React.FC = () => {
           listRecentActivity({ b_size: 12 }),
         ]);
         if (!cancelled) {
-          setFolders(folderListing.items.filter(isFolder).slice(0, 8));
+          setFolders(folderListing.items.filter(isFolderishContent).slice(0, 8));
           setRecent(activity.items.slice(0, 12));
         }
       } catch {
@@ -203,12 +218,15 @@ const AdminHome: React.FC = () => {
 
   const openRecent = (item: PloneContentItem) => {
     const path = toPlonePath(item['@id']);
-    if (isFolder(item)) {
+    if (isFolderishContent(item)) {
       navigate(adminContentHref(path));
       return;
     }
-    const parent = path.includes('/') ? path.split('/').slice(0, -1).join('/') : '';
-    navigate(adminContentHref(parent));
+    window.setTimeout(() => {
+      navigate(adminContentHref(parentPlonePath(path)), {
+        state: { focusPath: path },
+      });
+    }, 0);
   };
 
   return (
@@ -288,10 +306,10 @@ const AdminHome: React.FC = () => {
                   <RecentIcon item={item} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-slate-900">
-                      {item.title || item.id}
+                      {getContentDisplayName(item)}
                     </p>
                     <p className="truncate text-[11px] text-slate-500">
-                      {TYPE_LABELS[item['@type']] || item['@type']}
+                      {getContentTypeLabel(item)}
                       {item.Creator ? ` · ${item.Creator}` : ''}
                     </p>
                   </div>
@@ -312,12 +330,12 @@ const AdminHome: React.FC = () => {
                   type="button"
                   onClick={() => openRecent(item)}
                   className={recentCardClass(item)}
-                  title={`${item.title || item.id} · ${formatRelative(item.modified)}`}
+                  title={`${getContentDisplayName(item)} · ${formatRelative(item.modified)}`}
                 >
                   <RecentIcon item={item} compact />
                   <div className="flex min-h-8 min-w-0 flex-1 items-center gap-1.5">
                     <p className="truncate text-sm font-medium leading-none text-slate-900">
-                      {item.title || item.id}
+                      {getContentDisplayName(item)}
                     </p>
                     {state && state !== 'published' && (
                       <span
@@ -389,7 +407,7 @@ const AdminHome: React.FC = () => {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="flex min-w-0 items-center gap-1.5 truncate font-medium text-slate-900">
-                    <span className="truncate">{folder.title || folder.id}</span>
+                    <span className="truncate">{getContentDisplayName(folder)}</span>
                     {getReviewState(folder) === 'private' && (
                       <span className="shrink-0 rounded-full bg-slate-500 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
                         Privado

@@ -19,6 +19,9 @@ export type PloneContentItem = {
   effective?: string | null;
   expires?: string | null;
   is_folderish?: boolean;
+  /** Presente em alguns resultados de @search quando @type falta. */
+  portal_type?: string;
+  type_title?: string;
   review_state?: string;
   UID?: string;
   exclude_from_nav?: boolean;
@@ -173,6 +176,106 @@ export const adminContentHref = (path: string): string => {
   return clean ? `/admin/conteudo/${clean}` : '/admin/conteudo';
 };
 
+/** Tipos que nunca são pastas (mesmo se o catálogo mandar is_folderish errado). */
+const NON_FOLDERISH_TYPES = new Set([
+  'File',
+  'Image',
+  'Document',
+  'Link',
+  'Event',
+  'News Item',
+  'NewsItem',
+]);
+
+const FOLDERISH_TYPES = new Set(['Folder', 'Collection', 'Plone Site']);
+
+/** Resolve @type (com fallback para portal_type do catálogo). */
+export const resolveContentType = (
+  item: Pick<PloneContentItem, '@type' | 'portal_type'> | null | undefined
+): string => {
+  if (!item) return '';
+  const raw = item['@type'] || item.portal_type || '';
+  return typeof raw === 'string' ? raw : '';
+};
+
+/** Último segmento do @id (nome do objeto no Plone / nome do arquivo). */
+export const contentIdFromAtId = (atId?: string | null): string => {
+  if (!atId) return '';
+  try {
+    const path = toPlonePath(atId);
+    const segment = path.split('/').filter(Boolean).pop() || '';
+    return decodeURIComponent(segment);
+  } catch {
+    const tail = atId.split('/').filter(Boolean).pop() || '';
+    try {
+      return decodeURIComponent(tail);
+    } catch {
+      return tail;
+    }
+  }
+};
+
+/**
+ * Nome para exibição: title → id → segmento do @id → rótulo do tipo.
+ * Evita linhas em branco quando o Plone manda title: "".
+ */
+export const getContentDisplayName = (
+  item:
+    | Pick<PloneContentItem, 'title' | 'id' | '@id' | '@type' | 'portal_type' | 'type_title' | 'is_folderish'>
+    | null
+    | undefined
+): string => {
+  if (!item) return 'Sem nome';
+  const title = typeof item.title === 'string' ? item.title.trim() : '';
+  if (title) return title;
+  const id = typeof item.id === 'string' ? item.id.trim() : '';
+  if (id) return id;
+  const fromPath = contentIdFromAtId(item['@id']);
+  if (fromPath) return fromPath;
+  return getContentTypeLabel(item);
+};
+
+/** Garante @type e id preenchidos nos itens vindos de @search. */
+export const normalizeContentItem = (item: PloneContentItem): PloneContentItem => {
+  const type = resolveContentType(item);
+  const id = (item.id || '').trim() || contentIdFromAtId(item['@id']);
+  const next: PloneContentItem = { ...item };
+  let changed = false;
+  if (type && item['@type'] !== type) {
+    next['@type'] = type;
+    changed = true;
+  }
+  if (id && item.id !== id) {
+    next.id = id;
+    changed = true;
+  }
+  return changed ? next : item;
+};
+
+/**
+ * Só pastas/coleções são navegáveis no admin.
+ * Ignora is_folderish em tipos de arquivo/página (metadado do catálogo às vezes vem errado).
+ */
+export const isFolderishContent = (
+  item:
+    | Pick<PloneContentItem, '@type' | 'portal_type' | 'is_folderish'>
+    | null
+    | undefined
+): boolean => {
+  if (!item) return false;
+  const type = resolveContentType(item);
+  if (type && NON_FOLDERISH_TYPES.has(type)) return false;
+  if (type && FOLDERISH_TYPES.has(type)) return true;
+  return item.is_folderish === true;
+};
+
+/** Pasta pai de um path Plone (`a/b/c` → `a/b`). */
+export const parentPlonePath = (path: string): string => {
+  const clean = toPlonePath(path);
+  if (!clean.includes('/')) return '';
+  return clean.split('/').slice(0, -1).join('/');
+};
+
 export const getContent = async (path = ''): Promise<PloneContentItem> => {
   return apiRequest<PloneContentItem>(pathToApiEndpoint(path) || '/');
 };
@@ -223,6 +326,7 @@ export const listFolderContents = async (
   params.append('metadata_fields', 'review_state');
   params.append('metadata_fields', 'effective');
   params.append('metadata_fields', 'is_folderish');
+  params.append('metadata_fields', 'portal_type');
   params.append('b_size', String(b_size));
   params.append('b_start', String(b_start));
   params.append('sort_on', 'getObjPositionInParent');
@@ -235,7 +339,10 @@ export const listFolderContents = async (
     apiRequest<{ items?: PloneContentItem[] }>(`${searchEndpoint}?${params.toString()}`),
   ]);
 
-  return { parent, items: Array.isArray(search.items) ? search.items : [] };
+  return {
+    parent: normalizeContentItem(parent),
+    items: Array.isArray(search.items) ? search.items.map(normalizeContentItem) : [],
+  };
 };
 
 export const getBreadcrumbs = async (path = ''): Promise<BreadcrumbItem[]> => {
@@ -340,6 +447,7 @@ export const listRecentActivity = async (
   params.append('metadata_fields', 'created');
   params.append('metadata_fields', 'review_state');
   params.append('metadata_fields', 'is_folderish');
+  params.append('metadata_fields', 'portal_type');
 
   if (Creator?.trim()) {
     params.append('Creator', Creator.trim());
@@ -360,7 +468,7 @@ export const listRecentActivity = async (
   }>(`/@search?${params.toString()}`);
 
   return {
-    items: Array.isArray(data.items) ? data.items : [],
+    items: Array.isArray(data.items) ? data.items.map(normalizeContentItem) : [],
     items_total: data.items_total ?? 0,
   };
 };
@@ -532,4 +640,21 @@ export const TYPE_LABELS: Record<string, string> = {
   Event: 'Evento',
   NewsItem: 'Notícia',
   'Plone Site': 'Site',
+};
+
+export const getContentTypeLabel = (
+  item:
+    | Pick<PloneContentItem, '@type' | 'portal_type' | 'type_title' | 'is_folderish'>
+    | null
+    | undefined
+): string => {
+  if (!item) return 'Item';
+  // Preferir type_title do Plone (já localizado: Pasta, Arquivo, Página…).
+  const typeTitle =
+    typeof item.type_title === 'string' ? item.type_title.trim() : '';
+  if (typeTitle) return typeTitle;
+  const type = resolveContentType(item);
+  if (type && TYPE_LABELS[type]) return TYPE_LABELS[type];
+  if (isFolderishContent(item)) return 'Pasta';
+  return type || 'Item';
 };

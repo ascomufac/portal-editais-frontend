@@ -10,6 +10,7 @@ import {
   ArrowUpDown,
   ClipboardPaste,
   Copy,
+  Eye,
   EyeOff,
   Globe,
   MoreHorizontal,
@@ -39,9 +40,11 @@ type SelectionToolbarProps = {
   onRetract: () => void;
   onRename: () => void;
   onShare: () => void;
+  onView?: () => void;
   onEdit: () => void;
   onSort: (key: SortKey) => void;
   singleSelected: boolean;
+  canView?: boolean;
 };
 
 /**
@@ -63,9 +66,11 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   onRetract,
   onRename,
   onShare,
+  onView,
   onEdit,
   onSort,
   singleSelected,
+  canView = false,
 }) => {
   const iconBtn =
     'h-9 w-9 rounded-full text-slate-700 hover:bg-slate-100 disabled:opacity-40';
@@ -172,6 +177,18 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
       {singleSelected && (
         <>
           <div className="mx-1 hidden h-5 w-px bg-slate-300 sm:block" />
+          {canView && onView && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={cn(iconBtn, 'text-ufac-blue hover:bg-ufac-lightBlue/60')}
+              onClick={onView}
+              title="Visualizar"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"
