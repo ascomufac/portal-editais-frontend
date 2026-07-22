@@ -1,4 +1,4 @@
-import { BASE_URL } from '@/services/editalService';
+import { apiFetch } from '@/services/apiClient';
 import { SearchResult, SearchSection, sectionPathMap } from './types';
 import { extractFileNameFromUrl } from './utils';
 
@@ -44,8 +44,7 @@ export const searchDocuments = async (
     apiPath = `/${sectionPathMap[section]}`;
   }
 
-  const apiUrl = `${BASE_URL}${apiPath}/@search?${searchParams.toString()}`;
-  const response = await fetch(apiUrl);
+  const response = await apiFetch(`${apiPath}/@search?${searchParams.toString()}`);
 
   if (!response.ok) {
     throw new Error(`Erro na API: ${response.status}`);
