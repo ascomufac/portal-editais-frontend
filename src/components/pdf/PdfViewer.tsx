@@ -12,12 +12,18 @@ pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.vers
 interface PdfViewerProps {
   fileUrl: string;
   fileName?: string;
+  /** tools: chrome mínimo (sem voltar/nome/baixar duplicados). */
+  toolbarVariant?: 'full' | 'tools';
 }
 
 /**
  * Visualizador de PDF com resolução robusta para Plone (proxy + blob URL)
  */
-const PdfViewer: React.FC<PdfViewerProps> = ({ fileUrl, fileName }) => {
+const PdfViewer: React.FC<PdfViewerProps> = ({
+  fileUrl,
+  fileName,
+  toolbarVariant = 'full',
+}) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [source, setSource] = useState<ResolvedPdfSource | null>(null);
@@ -69,7 +75,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ fileUrl, fileName }) => {
 
   return (
     <PdfViewerProvider fileUrl={source.viewerUrl} downloadUrl={source.downloadUrl}>
-      <PdfViewerLayout fileName={fileName || source.fileName}>
+      <PdfViewerLayout fileName={fileName || source.fileName} toolbarVariant={toolbarVariant}>
         <PdfContent />
       </PdfViewerLayout>
     </PdfViewerProvider>

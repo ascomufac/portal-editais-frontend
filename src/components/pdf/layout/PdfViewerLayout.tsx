@@ -15,11 +15,14 @@ import PdfToolbar from '../PdfToolbar';
 interface PdfViewerLayoutProps {
   children: React.ReactNode;
   fileName?: string;
+  /** tools: omite voltar/nome/baixar (chrome do shell pai). */
+  toolbarVariant?: 'full' | 'tools';
 }
 
 const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
   children,
   fileName,
+  toolbarVariant = 'full',
 }) => {
   const isMobile = useIsMobile();
   const {
@@ -68,10 +71,11 @@ const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
 
   const toolbar = (
     <PdfToolbar
+      variant={toolbarVariant}
       displayFileName={displayFileName}
       fileUrl={downloadUrl || fileUrl}
       thumbnailToggle={
-        state.numPages && state.numPages > 0 ? (
+        state.numPages && state.numPages > 1 ? (
           <Button
             variant="ghost"
             size="sm"
@@ -100,6 +104,10 @@ const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
       }
     />
   );
+
+  // Miniaturas só fazem sentido com mais de uma página
+  const showThumbnailPanel =
+    state.showThumbnails && Boolean(state.numPages && state.numPages > 1);
 
   const footer =
     state.numPages && state.numPages > 0 ? (
@@ -141,7 +149,7 @@ const PdfViewerLayout: React.FC<PdfViewerLayoutProps> = ({
 
         {!state.error && (
           <>
-            {state.showThumbnails && state.numPages > 0 && (
+            {showThumbnailPanel && state.numPages && (
               <>
                 {isMobile && (
                   <button

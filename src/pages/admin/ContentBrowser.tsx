@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import AdminFilePreviewPanel from '@/components/admin/AdminFilePreviewPanel';
 import ContentEditorDialog from '@/components/admin/ContentEditorDialog';
 import HistoryDialog from '@/components/admin/HistoryDialog';
 import SelectionToolbar, { type SortKey } from '@/components/admin/SelectionToolbar';
@@ -44,9 +45,14 @@ import {
   getReviewState,
   getTransitionId,
   getWorkflow,
+  getContentTypeLabel,
+  getContentDisplayName,
+  isFolderishContent,
   listFolderContents,
   moveContent,
+  parentPlonePath,
   renameContent,
+  resolveContentType,
   toPlonePath,
   transitionWorkflow,
   type BreadcrumbItem,
@@ -60,6 +66,7 @@ import {
   ChevronRight,
   ClipboardPaste,
   Copy,
+  Eye,
   EyeOff,
   FileText,
   Folder,
@@ -81,13 +88,10 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
-const isFolderish = (item: PloneContentItem) =>
-  Boolean(
-    item.is_folderish ||
-      item['@type'] === 'Folder' ||
-      item['@type'] === 'Collection' ||
-      item['@type'] === 'Plone Site'
-  );
+const canViewContent = (item: PloneContentItem) => {
+  const type = resolveContentType(item);
+  return type === 'File' || type === 'Image' || type === 'Link' || type === 'Document';
+};
 
 const isUnpublished = (item: PloneContentItem) => {
   const state = getReviewState(item);
@@ -128,13 +132,20 @@ const DriveIcon: React.FC<{
   compact?: boolean;
   /** Pasta privada: cinza; publicada: azul estilo Finder */
   privateFolder?: boolean;
-}> = ({ type, compact = false, privateFolder = false }) => {
+  /** Preferir pasta quando is_folderish (tipo ausente/custom). */
+  folderish?: boolean;
+}> = ({ type, compact = false, privateFolder = false, folderish = false }) => {
   const box = compact
     ? 'flex h-8 w-8 shrink-0 items-center justify-center'
     : 'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg';
   const icon = compact ? 'h-5 w-5' : 'h-5 w-5';
 
-  if (type === 'Folder' || type === 'Plone Site' || type === 'Collection') {
+  if (
+    folderish ||
+    type === 'Folder' ||
+    type === 'Plone Site' ||
+    type === 'Collection'
+  ) {
     if (privateFolder) {
       return (
         <span className={cn(box, 'relative', !compact && 'bg-slate-100 text-slate-500')}>
@@ -261,13 +272,21 @@ const ContentBrowser: React.FC = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [clipboard, setClipboard] = useState<ClipboardPayload | null>(() => readClipboard());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [previewItem, setPreviewItem] = useState<PloneContentItem | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [listing, breadcrumbs, addable, wf] = await Promise.all([
-        listFolderContents(path),
+      const listing = await listFolderContents(path);
+      // Arquivos/páginas não são navegáveis — volta para a pasta pai.
+      if (listing.parent && !isFolderishContent(listing.parent)) {
+        const parentPath = parentPlonePath(path);
+        toast.message('Este item não é uma pasta. Abrindo a pasta pai.');
+        navigate(adminContentHref(parentPath), { replace: true });
+        return;
+      }
+      const [breadcrumbs, addable, wf] = await Promise.all([
         getBreadcrumbs(path),
         getAddableTypes(path),
         getWorkflow(path).catch(() => null),
@@ -286,7 +305,7 @@ const ContentBrowser: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [path]);
+  }, [path, navigate]);
 
   useEffect(() => {
     load();
@@ -312,12 +331,13 @@ const ContentBrowser: React.FC = () => {
     }
 
     if (q) {
-      list = list.filter(
-        (item) =>
-          (item.title || '').toLowerCase().includes(q) ||
-          (item.id || '').toLowerCase().includes(q) ||
+      list = list.filter((item) => {
+        const name = getContentDisplayName(item).toLowerCase();
+        return (
+          name.includes(q) ||
           (item.Creator || '').toLowerCase().includes(q)
-      );
+        );
+      });
     }
 
     return [...list].sort((a, b) => {
@@ -325,20 +345,22 @@ const ContentBrowser: React.FC = () => {
       if (sortKey === 'modified') {
         cmp = (a.modified || '').localeCompare(b.modified || '');
       } else if (sortKey === 'type') {
-        cmp = (a['@type'] || '').localeCompare(b['@type'] || '', 'pt-BR');
+        cmp = getContentTypeLabel(a).localeCompare(getContentTypeLabel(b), 'pt-BR');
       } else if (sortKey === 'owner') {
         cmp = (a.Creator || '').localeCompare(b.Creator || '', 'pt-BR', {
           sensitivity: 'base',
         });
       } else {
-        const af = isFolderish(a) ? 0 : 1;
-        const bf = isFolderish(b) ? 0 : 1;
+        const af = isFolderishContent(a) ? 0 : 1;
+        const bf = isFolderishContent(b) ? 0 : 1;
         if (af !== bf) {
           cmp = af - bf;
         } else {
-          cmp = (a.title || '').localeCompare(b.title || '', 'pt-BR', {
-            sensitivity: 'base',
-          });
+          cmp = getContentDisplayName(a).localeCompare(
+            getContentDisplayName(b),
+            'pt-BR',
+            { sensitivity: 'base' }
+          );
         }
       }
       return sortDir === 'asc' ? cmp : -cmp;
@@ -371,22 +393,65 @@ const ContentBrowser: React.FC = () => {
   };
 
   useEffect(() => {
-    const intent = (location.state as { intent?: AdminCreateIntent } | null)?.intent;
-    if (!intent) return;
-    if (intent.kind === 'upload') {
-      setUploadOpen(true);
-    } else if (intent.kind === 'create') {
-      openCreate(intent.type);
+    const state = location.state as
+      | { intent?: AdminCreateIntent; focusPath?: string }
+      | null;
+    const intent = state?.intent;
+    const focusPath = state?.focusPath;
+
+    if (intent) {
+      if (intent.kind === 'upload') {
+        setUploadOpen(true);
+      } else if (intent.kind === 'create') {
+        openCreate(intent.type);
+      }
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
+      return;
+    }
+
+    if (!focusPath || loading) return;
+
+    const target = items.find((item) => toPlonePath(item['@id']) === focusPath);
+    if (target) {
+      setSelectedId(target['@id']);
+      setSelected(new Set([target['@id']]));
+      const pathToFocus = focusPath;
+      window.setTimeout(() => {
+        const el = document.querySelector(
+          `[data-plone-path="${CSS.escape(pathToFocus)}"]`
+        );
+        el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }, 50);
     }
     navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.key]);
+  }, [location.key, loading, items]);
 
   const openEdit = (item: PloneContentItem) => {
     setEditorMode('edit');
     setEditorType(item['@type']);
     setEditingItem(item);
     setEditorOpen(true);
+  };
+
+  const openView = (item: PloneContentItem) => {
+    const type = resolveContentType(item);
+    if (type === 'Link') {
+      const url =
+        (typeof item.remoteUrl === 'string' && item.remoteUrl) || item['@id'];
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (type === 'Document') {
+      // Página Plone: abre no site (sem preview binário).
+      window.open(item['@id'], '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (type === 'File' || type === 'Image') {
+      setPreviewItem(item);
+      return;
+    }
+    toast.message('Este tipo de conteúdo não tem visualização.');
   };
 
   const handleItemClick = (item: PloneContentItem, event?: React.MouseEvent) => {
@@ -396,10 +461,21 @@ const ContentBrowser: React.FC = () => {
     }
     setSelectedId(item['@id']);
     const itemPath = toPlonePath(item['@id']);
-    if (isFolderish(item)) {
+    if (isFolderishContent(item)) {
       navigate(adminContentHref(itemPath));
-    } else {
-      openEdit(item);
+      return;
+    }
+    // Arquivo/página: só seleciona (editar pelo menu ou barra).
+    setSelected(new Set([item['@id']]));
+  };
+
+  const handleItemDoubleClick = (item: PloneContentItem) => {
+    if (isFolderishContent(item)) {
+      navigate(adminContentHref(toPlonePath(item['@id'])));
+      return;
+    }
+    if (canViewContent(item)) {
+      openView(item);
     }
   };
 
@@ -645,6 +721,12 @@ const ContentBrowser: React.FC = () => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52 rounded-xl">
+        {canViewContent(item) && (
+          <DropdownMenuItem onClick={() => openView(item)}>
+            <Eye className="mr-2 h-4 w-4" />
+            Visualizar
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={() => openEdit(item)}>
           <Pencil className="mr-2 h-4 w-4" />
           Editar
@@ -661,7 +743,7 @@ const ContentBrowser: React.FC = () => {
         <DropdownMenuItem
           onClick={() => {
             setHistoryPath(toPlonePath(item['@id']));
-            setHistoryTitle(item.title || item.id || '');
+            setHistoryTitle(getContentDisplayName(item));
             setHistoryOpen(true);
           }}
         >
@@ -887,7 +969,7 @@ const ContentBrowser: React.FC = () => {
                 type="button"
                 className="inline-flex max-w-full items-center gap-1 truncate text-2xl font-normal text-slate-900 hover:bg-slate-50 rounded-lg px-1 -ml-1"
               >
-                <span className="truncate">{parent?.title || 'Editais'}</span>
+                <span className="truncate">{parent ? getContentDisplayName(parent) : 'Editais'}</span>
                 <ChevronDown className="h-5 w-5 shrink-0 text-slate-500" />
               </button>
             </DropdownMenuTrigger>
@@ -945,6 +1027,13 @@ const ContentBrowser: React.FC = () => {
         </div>
       </div>
 
+      {previewItem ? (
+        <AdminFilePreviewPanel
+          item={previewItem}
+          onClose={() => setPreviewItem(null)}
+        />
+      ) : (
+        <>
       {/* Ações de seleção (quando há itens marcados) */}
       {selected.size > 0 && (
         <SelectionToolbar
@@ -955,6 +1044,7 @@ const ContentBrowser: React.FC = () => {
           clipboardMode={clipboard?.mode}
           sortKey={sortKey}
           singleSelected={selected.size === 1}
+          canView={Boolean(primarySelected && canViewContent(primarySelected))}
           onClear={() => setSelected(new Set())}
           onCut={() => putClipboard('cut')}
           onCopy={() => putClipboard('copy')}
@@ -971,6 +1061,9 @@ const ContentBrowser: React.FC = () => {
             if (!primarySelected) return;
             setSharingPath(toPlonePath(primarySelected['@id']));
             setSharingOpen(true);
+          }}
+          onView={() => {
+            if (primarySelected) openView(primarySelected);
           }}
           onEdit={() => {
             if (primarySelected) openEdit(primarySelected);
@@ -1153,9 +1246,11 @@ const ContentBrowser: React.FC = () => {
               return (
                 <div
                   key={item['@id']}
+                  data-plone-path={toPlonePath(item['@id'])}
                   role="button"
                   tabIndex={0}
                   onClick={(e) => handleItemClick(item, e)}
+                  onDoubleClick={() => handleItemDoubleClick(item)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
@@ -1174,19 +1269,20 @@ const ContentBrowser: React.FC = () => {
                     <Checkbox
                       checked={isChecked}
                       onCheckedChange={(v) => toggleSelect(item['@id'], v === true)}
-                      aria-label={`Selecionar ${item.title}`}
+                      aria-label={`Selecionar ${getContentDisplayName(item)}`}
                     />
                   </div>
                   <span className="flex h-8 shrink-0 items-center self-center">
                     <DriveIcon
                     type={item['@type']}
                     compact
+                    folderish={isFolderishContent(item)}
                     privateFolder={getReviewState(item) === 'private'}
                   />
                   </span>
                   <div className="flex min-h-8 min-w-0 flex-1 items-center gap-1.5 self-center">
                     <p className="truncate text-left text-sm font-medium leading-none text-slate-900">
-                      {item.title || item.id}
+                      {getContentDisplayName(item)}
                     </p>
                     {stateBadge(item)}
                   </div>
@@ -1264,9 +1360,11 @@ const ContentBrowser: React.FC = () => {
               return (
                 <li key={item['@id']}>
                   <div
+                    data-plone-path={toPlonePath(item['@id'])}
                     role="button"
                     tabIndex={0}
                     onClick={(e) => handleItemClick(item, e)}
+                    onDoubleClick={() => handleItemDoubleClick(item)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
@@ -1279,16 +1377,17 @@ const ContentBrowser: React.FC = () => {
                       <Checkbox
                         checked={isChecked}
                         onCheckedChange={(v) => toggleSelect(item['@id'], v === true)}
-                        aria-label={`Selecionar ${item.title}`}
+                        aria-label={`Selecionar ${getContentDisplayName(item)}`}
                       />
                     </div>
                     <div className="flex min-w-0 items-center gap-3">
                       <DriveIcon
                         type={item['@type']}
+                        folderish={isFolderishContent(item)}
                         privateFolder={getReviewState(item) === 'private'}
                       />
                       <span className="truncate text-[15px] text-slate-900">
-                        {item.title || item.id}
+                        {getContentDisplayName(item)}
                       </span>
                       {stateBadge(item)}
                     </div>
@@ -1299,7 +1398,7 @@ const ContentBrowser: React.FC = () => {
                       {formatShortDate(item.modified)}
                     </div>
                     <div className="hidden truncate text-sm text-slate-600 lg:block">
-                      {TYPE_LABELS[item['@type']] || item['@type']}
+                      {getContentTypeLabel(item)}
                     </div>
                     <div
                       className="flex justify-end"
@@ -1313,6 +1412,8 @@ const ContentBrowser: React.FC = () => {
             })}
           </ul>
         </div>
+      )}
+        </>
       )}
 
       <ContentEditorDialog
@@ -1359,7 +1460,7 @@ const ContentBrowser: React.FC = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir item?</AlertDialogTitle>
             <AlertDialogDescription>
-              Isso remove permanentemente “{deleteTarget?.title}” no Ufac. Esta ação
+              Isso remove permanentemente “{deleteTarget ? getContentDisplayName(deleteTarget) : ''}” no Ufac. Esta ação
               não pode ser desfeita facilmente.
             </AlertDialogDescription>
           </AlertDialogHeader>

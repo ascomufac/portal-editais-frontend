@@ -32,6 +32,10 @@ const PdfNavigation: React.FC<PdfNavigationProps> = ({
   const canGoPrev = pageNumber > 1;
   const canGoNext = pageNumber < total;
 
+  if (total <= 1) {
+    return null;
+  }
+
   const goToPage = (pageNum: number) => {
     if (!numPages || pageNum < 1 || pageNum > numPages) return;
     setPageNumber(pageNum);
