@@ -31,13 +31,10 @@ import {
 } from '@/services/ploneContentService';
 import {
   ChevronDown,
-  ClipboardList,
-  FileText,
   Folder,
   History,
   LayoutGrid,
   LayoutList,
-  Link2,
   Loader2,
   Lock,
   RefreshCw,
@@ -78,11 +75,21 @@ const isUnpublished = (item: PloneContentItem) => {
   return Boolean(state && state !== 'published');
 };
 
+/** Pasta com cadeado — atalho “Para publicar”. */
+const LockedFolderIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <span className={cn('relative inline-flex items-center justify-center', className)}>
+    <Folder className="h-full w-full fill-slate-400/90 text-slate-500" strokeWidth={1.75} />
+    <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-slate-600">
+      <Lock className="h-2 w-2 fill-none text-white" strokeWidth={2.5} aria-hidden />
+    </span>
+  </span>
+);
+
 const activityCardClass = (item: PloneContentItem) => {
   const privateItem = getReviewState(item) === 'private';
   const draft = isUnpublished(item) && !privateItem;
   return cn(
-    'group flex h-12 w-full min-w-0 items-center gap-1 overflow-hidden rounded-xl border border-transparent py-1.5 pl-1.5 pr-1 text-left transition',
+    'group flex h-12 w-full min-w-0 items-center gap-1 overflow-visible rounded-xl border border-transparent py-1.5 pl-1.5 pr-1 text-left transition',
     privateItem
       ? 'bg-slate-100/90 hover:bg-slate-100'
       : draft
@@ -158,7 +165,7 @@ const AdminActivity: React.FC<Props> = ({ preset = 'all' }) => {
       return {
         title: 'Para publicar',
         subtitle: 'Itens privados ou pendentes que ainda não estão públicos.',
-        Icon: ClipboardList,
+        Icon: LockedFolderIcon,
       };
     }
     if (preset === 'mine') {
@@ -597,7 +604,7 @@ const AdminActivity: React.FC<Props> = ({ preset = 'all' }) => {
                         openItem(item);
                       }
                     }}
-                    className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-left"
+                    className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
                   >
                     <AdminDriveIcon item={item} compact />
                     <div className="min-w-0 flex-1 overflow-hidden">

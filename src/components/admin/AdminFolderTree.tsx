@@ -255,7 +255,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           className="flex min-w-0 flex-1 items-center gap-2 py-1.5"
           title={label}
         >
-          <AdminDriveIcon item={iconItem} compact />
+          <AdminDriveIcon item={iconItem} compact open={isExpanded} />
           <span className="truncate">{label}</span>
         </Link>
       </div>

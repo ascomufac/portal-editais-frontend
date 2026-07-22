@@ -9,6 +9,7 @@ import {
   adminDriveMenuLabelClass,
   adminDriveMenuSeparatorClass,
 } from '@/components/admin/adminDriveMenuStyles';
+import { HomeIcon } from '@/components/sidebar/SidebarIcons';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,15 +22,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import {
-  ClipboardList,
   ExternalLink,
   FileText,
   Folder,
-  HardDrive,
   History,
   Home,
   Layers,
   Link2,
+  Lock,
   LogOut,
   GripVertical,
   Plus,
@@ -203,6 +203,15 @@ const AdminLayout: React.FC = () => {
     </NavLink>
   );
 
+  const paraPublicarIcon = (
+    <span className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center">
+      <Folder className="h-5 w-5 fill-slate-400/90 text-slate-500" strokeWidth={1.75} />
+      <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-slate-600">
+        <Lock className="h-1.5 w-1.5 fill-none text-white" strokeWidth={3} aria-hidden />
+      </span>
+    </span>
+  );
+
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-[#f0f4f9]">
       {/* Top bar Drive-like */}
@@ -298,7 +307,7 @@ const AdminLayout: React.FC = () => {
           <div className="px-1 pb-3 sm:px-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button className="h-14 w-full justify-center gap-2 rounded-2xl bg-white px-3 text-base font-medium text-slate-800 shadow-md shadow-slate-300/40 hover:bg-slate-50 sm:justify-start sm:px-5">
+                <Button className="h-14 w-14 justify-center gap-2 rounded-2xl bg-white px-3 text-base font-medium text-slate-800 shadow-md shadow-slate-300/40 hover:bg-slate-50 sm:w-auto sm:justify-start sm:px-5">
                   <Plus className="h-6 w-6 text-ufac-blue" strokeWidth={2.5} />
                   <span className="hidden sm:inline">Novo</span>
                 </Button>
@@ -354,7 +363,14 @@ const AdminLayout: React.FC = () => {
 
           <nav className="flex min-h-0 flex-1 flex-col px-1 sm:px-2">
             <div className="shrink-0 space-y-0.5">
-              {navItem('/admin', 'Início', <HardDrive className="h-5 w-5 shrink-0" />, true)}
+              {navItem(
+                '/admin',
+                'Início',
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden [&>svg]:h-full [&>svg]:w-full">
+                  <HomeIcon />
+                </span>,
+                true
+              )}
               <div className="sm:hidden">
                 {navItem(
                   '/admin/conteudo',
@@ -378,7 +394,7 @@ const AdminLayout: React.FC = () => {
               {navItem(
                 '/admin/para-publicar',
                 'Para publicar',
-                <ClipboardList className="h-5 w-5 shrink-0" />
+                paraPublicarIcon
               )}
               {navItem(
                 '/admin/meus',
