@@ -102,8 +102,8 @@ const LoginDialog: React.FC<LoginDialogProps> = ({
           </DialogTitle>
           <DialogDescription>
             {mode === 'login'
-              ? 'Entre com sua conta do portal UFAC (mesmo usuário do Plone).'
-              : 'Informe o usuário. O Plone enviará um e-mail com o link para criar uma nova senha.'}
+              ? 'Entre com sua conta do portal UFAC (mesmo usuário do Ufac).'
+              : 'Informe o usuário. O Ufac enviará um e-mail com o link para criar uma nova senha.'}
           </DialogDescription>
         </DialogHeader>
 

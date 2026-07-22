@@ -15,6 +15,21 @@ export default defineConfig({
         secure: true,
         rewrite: (p) => p.replace(/^\/__plone__/, ""),
         configure: (proxy) => {
+          // Varnish do www3 ignora Authorization e só bypassa cache com cookie __ac.
+          proxy.on("proxyReq", (proxyReq) => {
+            if (proxyReq.getHeader("authorization") && !proxyReq.getHeader("cookie")) {
+              proxyReq.setHeader("cookie", "__ac=ufac-editais");
+            } else if (
+              proxyReq.getHeader("authorization") &&
+              !String(proxyReq.getHeader("cookie") || "").includes("__ac=")
+            ) {
+              const existing = String(proxyReq.getHeader("cookie") || "");
+              proxyReq.setHeader(
+                "cookie",
+                existing ? `${existing}; __ac=ufac-editais` : "__ac=ufac-editais"
+              );
+            }
+          });
           proxy.on("proxyRes", (proxyRes) => {
             proxyRes.headers["access-control-allow-origin"] = "*";
           });

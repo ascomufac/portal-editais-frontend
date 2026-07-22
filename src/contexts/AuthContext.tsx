@@ -9,6 +9,7 @@ import React, {
 import {
   AuthError,
   AuthUser,
+  ensureAuthCookies,
   fetchCurrentUser,
   getAccessToken,
   getCachedUser,
@@ -57,6 +58,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsLoading(false);
         return;
       }
+
+      ensureAuthCookies();
 
       try {
         // Tenta renovar; se falhar, limpa sessão
