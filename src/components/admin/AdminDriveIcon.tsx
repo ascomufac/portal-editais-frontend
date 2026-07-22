@@ -1,7 +1,10 @@
 import FileTypeIcon, {
   getFileKind,
 } from '@/components/icons/FileTypeIcon';
-import { resolveMenuIconKey, getSectorMenuIcon } from '@/components/sidebar/menuIcons';
+import {
+  resolveSectorIconKey,
+  getSectorMenuIcon,
+} from '@/components/sidebar/menuIcons';
 import { cn } from '@/lib/utils';
 import {
   getContentDisplayName,
@@ -27,7 +30,7 @@ const PrivateBadge: React.FC = () => (
   </span>
 );
 
-const SectorFolderBadge: React.FC<{ sectorKey: string }> = ({ sectorKey }) => {
+const SectorBadge: React.FC<{ sectorKey: string }> = ({ sectorKey }) => {
   const glyph = getSectorMenuIcon(sectorKey);
   if (!glyph) return null;
   return (
@@ -58,7 +61,7 @@ const withBadgeRoom = (node: React.ReactNode, needsRoom: boolean) => {
 /**
  * Ícones estilo Google Drive para o admin:
  * pasta / link / PDF·DOC·XLS… / página Plone.
- * Pastas de setor: pasta + ícone da pró-reitoria sobreposto.
+ * Itens sob pró-reitoria / CAP / idiomas: badge do setor sobreposto.
  */
 const AdminDriveIcon: React.FC<AdminDriveIconProps> = ({
   item,
@@ -76,6 +79,13 @@ const AdminDriveIcon: React.FC<AdminDriveIconProps> = ({
       ? String(fileMeta.filename || '')
       : '') || '';
 
+  const sectorKey = resolveSectorIconKey({
+    id: item.id,
+    title: name,
+    '@id': item['@id'],
+  });
+  const showSector = Boolean(sectorKey);
+
   const box = cn(
     'relative overflow-visible',
     compact
@@ -87,6 +97,7 @@ const AdminDriveIcon: React.FC<AdminDriveIconProps> = ({
   const folderTone = privateItem
     ? 'fill-slate-400/90 text-slate-500'
     : 'fill-sky-400 text-sky-500';
+  const needsRoom = privateItem || showSector;
 
   if (
     folderish ||
@@ -95,11 +106,6 @@ const AdminDriveIcon: React.FC<AdminDriveIconProps> = ({
     type === 'Collection'
   ) {
     const isCollection = type === 'Collection';
-    const sectorKey = !isCollection
-      ? resolveMenuIconKey(item.id, name)
-      : null;
-    const showSector =
-      Boolean(sectorKey) && sectorKey !== 'home' && sectorKey !== null;
 
     if (isCollection) {
       return withBadgeRoom(
@@ -112,9 +118,10 @@ const AdminDriveIcon: React.FC<AdminDriveIconProps> = ({
           <Layers
             className={cn(icon, privateItem ? 'text-slate-500' : 'text-sky-600')}
           />
+          {showSector && <SectorBadge sectorKey={sectorKey!} />}
           {privateItem && <PrivateBadge />}
         </span>,
-        privateItem
+        needsRoom
       );
     }
 
@@ -130,10 +137,10 @@ const AdminDriveIcon: React.FC<AdminDriveIconProps> = ({
         )}
       >
         <FolderGlyph className={cn(icon, folderTone)} strokeWidth={1.5} />
-        {showSector && <SectorFolderBadge sectorKey={sectorKey!} />}
+        {showSector && <SectorBadge sectorKey={sectorKey!} />}
         {privateItem && <PrivateBadge />}
       </span>,
-      privateItem || showSector
+      needsRoom
     );
   }
 
@@ -148,9 +155,10 @@ const AdminDriveIcon: React.FC<AdminDriveIconProps> = ({
         <Link2
           className={cn(icon, privateItem ? 'text-slate-500' : 'text-sky-600')}
         />
+        {showSector && <SectorBadge sectorKey={sectorKey!} />}
         {privateItem && <PrivateBadge />}
       </span>,
-      privateItem
+      needsRoom
     );
   }
 
@@ -170,9 +178,10 @@ const AdminDriveIcon: React.FC<AdminDriveIconProps> = ({
           withBackground={!compact}
           className={compact ? undefined : 'rounded-lg'}
         />
+        {showSector && <SectorBadge sectorKey={sectorKey!} />}
         {privateItem && <PrivateBadge />}
       </span>,
-      privateItem
+      needsRoom
     );
   }
 
@@ -186,9 +195,10 @@ const AdminDriveIcon: React.FC<AdminDriveIconProps> = ({
           withBackground={!compact}
           className={compact ? undefined : 'rounded-lg'}
         />
+        {showSector && <SectorBadge sectorKey={sectorKey!} />}
         {privateItem && <PrivateBadge />}
       </span>,
-      privateItem
+      needsRoom
     );
   }
 
@@ -204,9 +214,10 @@ const AdminDriveIcon: React.FC<AdminDriveIconProps> = ({
         withBackground={!compact}
         className={compact ? undefined : 'rounded-lg'}
       />
+      {showSector && <SectorBadge sectorKey={sectorKey!} />}
       {privateItem && <PrivateBadge />}
     </span>,
-    privateItem
+    needsRoom
   );
 };
 

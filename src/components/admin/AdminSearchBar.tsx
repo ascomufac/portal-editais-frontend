@@ -350,7 +350,7 @@ const AdminSearchBar: React.FC<AdminSearchBarProps> = ({
                 role="combobox"
                 aria-expanded
                 aria-controls={listId}
-                className="h-10 flex-1 border-0 bg-transparent px-0 text-base shadow-none focus-visible:ring-0"
+                className="h-10 flex-1 rounded-none border-0 bg-transparent px-0 text-base shadow-none outline-none focus-visible:border-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               {query && (
                 <button

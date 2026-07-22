@@ -10,6 +10,7 @@ import {
   ProReitoriasIcon,
 } from '@/components/sidebar/SidebarIcons';
 import { Building, Folder } from 'lucide-react';
+import { toPlonePath } from '@/services/ploneContentService';
 import React from 'react';
 
 const FolderIcon = (
@@ -64,6 +65,18 @@ const TITLE_TO_KEY: Record<string, string> = {
   Proplan: 'proplan',
 };
 
+/** Setores herdáveis por path (badge em pastas/arquivos descendentes). */
+const INHERITABLE_SECTOR_KEYS = new Set([
+  'prograd',
+  'propeg',
+  'proex',
+  'proaes',
+  'prodgep',
+  'proplan',
+  'colegio-de-aplicacao',
+  'centro-idiomas',
+]);
+
 const iconsForKey = (key: string): React.ReactNode | null => {
   const map: Record<string, React.ReactNode> = {
     home: <HomeIcon />,
@@ -80,6 +93,14 @@ const iconsForKey = (key: string): React.ReactNode | null => {
   return map[key] ?? null;
 };
 
+const keyFromSegment = (segment: string): string | null => {
+  const id = segment.toLowerCase();
+  if (ID_ALIASES[id]) return ID_ALIASES[id];
+  if (id.includes('colegio') || id === 'cap') return 'colegio-de-aplicacao';
+  if (id.includes('idioma')) return 'centro-idiomas';
+  return null;
+};
+
 /**
  * Chave canônica do ícone de setor (ou null se for pasta genérica /
  * se não houver glifo dedicado — ex.: Centros de Ensino).
@@ -91,10 +112,7 @@ export const resolveMenuIconKey = (
   let key: string | null = null;
 
   if (itemId) {
-    const id = normalizeId(itemId);
-    if (ID_ALIASES[id]) key = ID_ALIASES[id];
-    else if (id.includes('colegio') || id === 'cap') key = 'colegio-de-aplicacao';
-    else if (id.includes('idioma')) key = 'centro-idiomas';
+    key = keyFromSegment(normalizeId(itemId));
   }
 
   if (!key && title) {
@@ -102,7 +120,10 @@ export const resolveMenuIconKey = (
     if (exact) key = exact;
     else {
       const lower = title.toLowerCase();
-      if (lower.includes('colégio de aplicação') || lower.includes('colegio de aplicacao')) {
+      if (
+        lower.includes('colégio de aplicação') ||
+        lower.includes('colegio de aplicacao')
+      ) {
         key = 'colegio-de-aplicacao';
       } else if (lower.includes('centro de idiomas')) {
         key = 'centro-idiomas';
@@ -115,7 +136,31 @@ export const resolveMenuIconKey = (
   return key;
 };
 
-/** Ícone de setor sem fallback de pasta (para badge sobre pasta). */
+/**
+ * Ícone de setor do item ou da raiz ancestral (pró-reitoria / CAP / idiomas).
+ * Ex.: arquivo em `prograd/edital-x/arquivo.pdf` → `prograd`.
+ */
+export const resolveSectorIconKey = (item: {
+  id?: string | null;
+  title?: string | null;
+  '@id'?: string | null;
+}): string | null => {
+  const direct = resolveMenuIconKey(item.id, item.title);
+  if (direct && INHERITABLE_SECTOR_KEYS.has(direct)) return direct;
+
+  const path = toPlonePath(item['@id'] || '');
+  const parts = path.split('/').filter(Boolean);
+  for (const part of parts) {
+    const key = keyFromSegment(part);
+    if (key && INHERITABLE_SECTOR_KEYS.has(key) && iconsForKey(key)) {
+      return key;
+    }
+  }
+
+  return null;
+};
+
+/** Ícone de setor sem fallback de pasta (para badge sobre pasta/arquivo). */
 export const getSectorMenuIcon = (key: string): React.ReactNode | null =>
   iconsForKey(key);
 
