@@ -81,7 +81,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, className 
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-ufac-background supports-[height:100dvh]:min-h-dvh">
+    <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-ufac-background">
       <div className="fixed top-0 left-0 right-0 z-50 pt-[env(safe-area-inset-top)]">
         <header className="relative flex h-14 sm:h-16 items-center gap-2 sm:gap-3 bg-ufac-blue px-2 sm:px-6">
           {isMobile && mobileSearchOpen ? (
@@ -150,7 +150,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, className 
 
         <div
           className={cn(
-            'flex min-h-0 flex-1 flex-col transition-all duration-300 ease-in-out',
+            'flex min-h-0 min-w-0 flex-1 flex-col transition-all duration-300 ease-in-out',
             !isMobile && isSidebarOpen
               ? isSidebarCollapsed
                 ? 'ml-16'
@@ -160,9 +160,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, className 
         >
           <main
             className={cn(
+              'min-h-0 flex-1',
               className
                 ? className
-                : 'flex-1 overflow-y-auto p-3 sm:p-6 md:p-8 pb-[max(1rem,env(safe-area-inset-bottom))]'
+                : 'overflow-y-auto p-3 sm:p-6 md:p-8 pb-[max(1rem,env(safe-area-inset-bottom))]'
             )}
           >
             {children}

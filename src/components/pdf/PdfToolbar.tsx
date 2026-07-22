@@ -1,44 +1,32 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, Minus, Plus } from 'lucide-react';
+import { ArrowLeft, Download } from 'lucide-react';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FitType } from './utils/pdfUtils';
 
 interface PdfToolbarProps {
   displayFileName: string;
-  scale: number;
-  setScale: (scale: number) => void;
-  fitType: FitType;
-  setFitType: (type: FitType) => void;
   fileUrl: string;
   searchComponent: React.ReactNode;
   thumbnailToggle?: React.ReactNode;
-  /** Prev/next compacto — exibido no mobile */
-  pageNavigation?: React.ReactNode;
+  /** No desktop, zoom/nav ficam no footer — busca permanece aqui */
+  compact?: boolean;
 }
 
+/**
+ * Toolbar superior: voltar, nome, miniaturas, busca (desktop) e download.
+ * Zoom e páginas ficam no PdfFooter.
+ */
 const PdfToolbar: React.FC<PdfToolbarProps> = ({
   displayFileName,
-  scale,
-  setScale,
   fileUrl,
   searchComponent,
   thumbnailToggle,
-  pageNavigation,
 }) => {
   const navigate = useNavigate();
 
-  const zoomIn = () => {
-    setScale(Math.min(scale + 0.1, 3.0));
-  };
-
-  const zoomOut = () => {
-    setScale(Math.max(scale - 0.1, 0.1));
-  };
-
   return (
-    <div className="z-10 flex w-full shrink-0 flex-col gap-1.5 border-b border-gray-200 bg-gray-50 px-2 py-2 sm:gap-2 sm:px-4">
-      <div className="flex w-full flex-wrap items-center gap-2">
+    <div className="z-10 flex w-full shrink-0 border-b border-gray-200 bg-gray-50 px-2 py-2 sm:px-4">
+      <div className="flex w-full items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
           <Button
             variant="ghost"
@@ -51,7 +39,7 @@ const PdfToolbar: React.FC<PdfToolbarProps> = ({
           </Button>
 
           <span
-            className="min-w-0 flex-1 truncate text-xs font-medium text-gray-500 sm:max-w-[200px] sm:text-sm lg:max-w-[280px]"
+            className="min-w-0 flex-1 truncate text-xs font-medium text-gray-500 sm:max-w-[240px] sm:text-sm lg:max-w-[320px]"
             title={displayFileName}
           >
             {displayFileName}
@@ -60,36 +48,6 @@ const PdfToolbar: React.FC<PdfToolbarProps> = ({
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           {thumbnailToggle}
-
-          {pageNavigation && (
-            <div className="sm:hidden">{pageNavigation}</div>
-          )}
-
-          <div className="flex items-center rounded-lg border border-gray-200 bg-white px-0.5">
-            <Button
-              variant="ghost"
-              className="h-8 w-8 rounded-full"
-              size="icon"
-              onClick={zoomOut}
-              aria-label="Diminuir zoom"
-            >
-              <Minus className="h-4 w-4" />
-            </Button>
-
-            <span className="min-w-[3rem] text-center text-xs tabular-nums sm:text-sm">
-              {Math.round(scale * 100)}%
-            </span>
-
-            <Button
-              variant="ghost"
-              className="h-8 w-8 rounded-full"
-              size="icon"
-              onClick={zoomIn}
-              aria-label="Aumentar zoom"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
 
           <div className="hidden sm:block">{searchComponent}</div>
 

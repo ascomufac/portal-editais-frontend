@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { usePdfViewerContext } from './context/PdfViewerContext';
 import PdfDocumentView from './PdfDocumentView';
 import { getPdfOptions } from './utils/pdfUtils';
@@ -13,19 +13,31 @@ const PdfContent: React.FC = () => {
     handleScroll
   } = usePdfViewerContext();
 
-  // Track if search has been applied
   const searchAppliedRef = useRef<boolean>(false);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
-  // Get the fileUrl from the context state
   const { fileUrl } = state;
-
-  // Memorize the options of the PDF to avoid recreation on each render
   const pdfOptions = useMemo(() => getPdfOptions(), []);
-
-  // Memorize the URL of the PDF to avoid unnecessary recalculations
   const pdfUrl = useMemo(() => fileUrl, [fileUrl]);
 
-  // Add data-page-number attributes to page elements for search functionality
+  // Mede o container para fit-width / fit-page
+  useEffect(() => {
+    const el = pdfContainerRef.current;
+    if (!el) return;
+
+    const update = () => {
+      setContainerSize({
+        width: el.clientWidth,
+        height: el.clientHeight,
+      });
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [pdfContainerRef, state.loading, state.numPages]);
+
   useEffect(() => {
     if (pdfContainerRef.current && state.numPages && !state.loading) {
       const pageElements = pdfContainerRef.current?.querySelectorAll('.react-pdf__Page');
@@ -36,9 +48,8 @@ const PdfContent: React.FC = () => {
         }
       });
     }
-  }, [state.numPages, state.loading]);
+  }, [state.numPages, state.loading, pdfContainerRef]);
 
-  // Subscribe to scroll events
   useEffect(() => {
     const container = pdfContainerRef.current;
     if (container) {
@@ -47,7 +58,7 @@ const PdfContent: React.FC = () => {
         container.removeEventListener('scroll', handleScroll);
       };
     }
-  }, [state.numPages, state.pageNumber, handleScroll]);
+  }, [state.numPages, state.pageNumber, handleScroll, pdfContainerRef]);
 
   // Add thumbnail generation capability
   useEffect(() => {
@@ -183,7 +194,8 @@ const PdfContent: React.FC = () => {
       scale={state.scale}
       rotation={state.rotation}
       fitType={state.fitType}
-      containerRef={pdfContainerRef.current}
+      containerWidth={containerSize.width}
+      containerHeight={containerSize.height}
       onLoadSuccess={onDocumentLoadSuccess}
       onLoadError={onDocumentLoadError}
       pdfOptions={pdfOptions}
