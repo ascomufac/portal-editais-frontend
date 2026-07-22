@@ -168,11 +168,8 @@ export function usePdfTextSelection(searchTerm: string = '', enableTextLayer: bo
      * @description Ajusta a largura máxima das páginas com base no tamanho do contêiner
      */
     const updatePageWidth = () => {
-      const containerWidth = document.querySelector('.react-pdf__Document')?.clientWidth;
-      if (containerWidth) {
-        const pageWidth = containerWidth - 40; // 20px de preenchimento em ambos os lados
-        document.documentElement.style.setProperty('--pdf-page-max-width', `${pageWidth}px`);
-      }
+      // Não limita com max-width fixo — o fit-width do Page já define o tamanho
+      document.documentElement.style.removeProperty('--pdf-page-max-width');
     };
 
     updatePageWidth();

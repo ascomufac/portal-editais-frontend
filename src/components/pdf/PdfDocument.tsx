@@ -38,7 +38,7 @@ const PdfDocument: React.FC<PdfDocumentProps> = ({
         console.error('Erro ao carregar PDF:', error);
         onLoadError(error);
       }}
-      className="flex flex-col items-center pb-4 bg-ufac-lightBlue"
+      className="flex w-full flex-col items-center bg-ufac-lightBlue pb-4"
       loading={
         <div className="flex flex-col items-center justify-center h-full">
           <Loader2 className="h-8 w-8 animate-spin text-ufac-blue mb-2" />

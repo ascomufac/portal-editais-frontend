@@ -28,12 +28,12 @@ const PdfPage: React.FC<PdfPageProps> = ({
 }) => {
   const pageRef = useRef<HTMLDivElement>(null);
   
-  // Fit width/page: a largura/altura do container define o tamanho (scale=1).
-  // Zoom manual: só scale, sem travar na largura.
+  // Fit width: largura útil do container (padding horizontal do wrapper)
   const useFitWidth = fitType === 'width' || fitType === 'page';
+  const horizontalPad = 16;
   const width =
     useFitWidth && containerWidth
-      ? Math.max(containerWidth - 32, 120)
+      ? Math.max(containerWidth - horizontalPad * 2, 120)
       : undefined;
 
   const height =
@@ -129,10 +129,9 @@ const PdfPage: React.FC<PdfPageProps> = ({
 
   return (
     <div 
-    ref={pageRef}
-    className="my-4 max-w-full rounded-3xl shadow-2xl sm:my-10" 
-    style={{ maxWidth: 'var(--pdf-page-max-width, 100%)', position: 'relative' }}
-    data-page-number={pageNumber}
+      ref={pageRef}
+      className="relative mx-auto my-4 w-fit max-w-full rounded-2xl shadow-2xl sm:my-8"
+      data-page-number={pageNumber}
     >
       <Page 
         key={`page_${pageNumber}_${rotation}_${pageScale}_${fitType}_${width ?? 'auto'}`}
@@ -144,21 +143,20 @@ const PdfPage: React.FC<PdfPageProps> = ({
         renderAnnotationLayer={true}
         renderTextLayer={enableTextLayer}
         canvasBackground="#ffffff"
-        className={`${isCurrentPage ? 'border-4 border-ufac-blue ' : ''} rounded-2xl overflow-hidden`}
+        className={`${
+          isCurrentPage ? 'ring-4 ring-ufac-blue ' : ''
+        } overflow-hidden rounded-2xl`}
         loading={
-          <div className="w-full  h-[400px] flex items-center justify-center bg-gray-50">
+          <div className="flex h-[400px] w-full items-center justify-center bg-gray-50">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           </div>
         }
         error={
-          <div className="w-full h-[400px] flex items-center justify-center bg-gray-50">
+          <div className="flex h-[400px] w-full items-center justify-center bg-gray-50">
             <p className="text-red-500">Erro ao carregar a página.</p>
           </div>
         }
         customTextRenderer={({ str }) => str}
-        onLoadSuccess={() => {
-          // console.log(`Page ${pageNumber} loaded successfully`);
-        }}
       />
       {/* Assinatura discreta no canto inferior direito */}
       <div
@@ -168,7 +166,7 @@ const PdfPage: React.FC<PdfPageProps> = ({
       >
         <UfacLogo clasName="h-auto w-full" />
       </div>
-      </div>
+    </div>
   );
 };
 

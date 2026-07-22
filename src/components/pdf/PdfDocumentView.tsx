@@ -119,7 +119,7 @@ const PdfDocumentView: React.FC<PdfDocumentViewProps> = ({
       pdfOptions={pdfOptions}
     >
       {numPages && numPages > 0 ? (
-        <div className="pages-container w-ful bg-ufac-lightBlue">
+        <div className="pages-container flex w-full flex-col items-center bg-ufac-lightBlue">
           {Array.from(new Array(numPages), (_, index) => (
             <PdfPage
               key={`page_${index + 1}`}

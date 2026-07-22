@@ -126,24 +126,19 @@ const PdfContent: React.FC = () => {
       
       /* Ensure pages don't overlap */
       .react-pdf__Page {
-        // margin-bottom: 0.5rem !important;
-        margin: 0 !important;
+        margin: 0 auto !important;
         position: relative !important;
-        overflow: visible !important;
+        overflow: hidden !important;
         max-width: 100% !important;
-        display: flex !important;
-        justify-content: center !important;
         background-color: #ffffff !important;
       }
       
-      /* Main canvas displaying the PDF */
       .react-pdf__Page__canvas {
         display: block !important;
         position: relative !important;
         z-index: 1 !important;
         margin: 0 auto !important;
         background-color: #ffffff !important;
-        border-radius: 2rem;
       }
        /* Remove border-radius if inside thumbnail */
       .thumbnail-page .react-pdf__Page__canvas {
