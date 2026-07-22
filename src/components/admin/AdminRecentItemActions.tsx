@@ -1,5 +1,11 @@
 import { Button } from '@/components/ui/button';
 import {
+  adminDriveMenuContentClass,
+  adminDriveMenuIconClass,
+  adminDriveMenuItemClass,
+  adminDriveMenuSeparatorClass,
+} from '@/components/admin/adminDriveMenuStyles';
+import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -126,37 +132,37 @@ const ActionItems: React.FC<
 
   return (
     <>
-      <Item onClick={onOpen}>
-        <FolderOpen className="mr-2 h-4 w-4" />
+      <Item className={adminDriveMenuItemClass} onClick={onOpen}>
+        <FolderOpen className={adminDriveMenuIconClass} />
         {folderish ? 'Abrir' : 'Mostrar na pasta'}
       </Item>
       {!folderish && (
-        <Item onClick={onOpenFolder}>
-          <FolderOpen className="mr-2 h-4 w-4" />
+        <Item className={adminDriveMenuItemClass} onClick={onOpenFolder}>
+          <FolderOpen className={adminDriveMenuIconClass} />
           Abrir pasta
         </Item>
       )}
       {viewable && (
-        <Item onClick={() => onAction('preview')}>
-          <Eye className="mr-2 h-4 w-4" />
+        <Item className={adminDriveMenuItemClass} onClick={() => onAction('preview')}>
+          <Eye className={adminDriveMenuIconClass} />
           Visualizar
         </Item>
       )}
-      <Item onClick={() => onAction('edit')}>
-        <Pencil className="mr-2 h-4 w-4" />
+      <Item className={adminDriveMenuItemClass} onClick={() => onAction('edit')}>
+        <Pencil className={adminDriveMenuIconClass} />
         Editar
       </Item>
-      <Item onClick={() => onAction('share')}>
-        <Share2 className="mr-2 h-4 w-4" />
+      <Item className={adminDriveMenuItemClass} onClick={() => onAction('share')}>
+        <Share2 className={adminDriveMenuIconClass} />
         Compartilhar
       </Item>
-      <Item onClick={() => onAction('history')}>
-        <History className="mr-2 h-4 w-4" />
+      <Item className={adminDriveMenuItemClass} onClick={() => onAction('history')}>
+        <History className={adminDriveMenuIconClass} />
         Histórico
       </Item>
-      <Separator />
-      <Item onClick={onCopyLink}>
-        <Link2 className="mr-2 h-4 w-4" />
+      <Separator className={adminDriveMenuSeparatorClass} />
+      <Item className={adminDriveMenuItemClass} onClick={onCopyLink}>
+        <Link2 className={adminDriveMenuIconClass} />
         Copiar link
       </Item>
     </>
@@ -172,8 +178,9 @@ type Props = {
 };
 
 /**
- * Linha com clique direito + botão ⋮ (ações estilo Drive).
+ * Linha com clique direito + botão ⋮ (ações estilo Drive / hover card escuro).
  * Ordem: children → ⋮ → trailing.
+ * O ⋮ fica fora do ContextMenuTrigger para o dropdown abrir corretamente.
  */
 const AdminRecentItemActions: React.FC<Props> = ({
   item,
@@ -183,52 +190,56 @@ const AdminRecentItemActions: React.FC<Props> = ({
 }) => {
   const handlers = useActionHandlers(item);
 
-  const stop = (e: React.SyntheticEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div className={className}>
-          {children}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0 rounded-full text-slate-500 opacity-60 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-                onClick={stop}
-                onPointerDown={stop}
-                title="Ações"
-                aria-label="Ações"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 rounded-xl" onClick={stop}>
-              <ActionItems
-                item={item}
-                Item={DropdownMenuItem}
-                Separator={DropdownMenuSeparator}
-                {...handlers}
-              />
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {trailing}
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent className="w-52 rounded-xl">
-        <ActionItems
-          item={item}
-          Item={ContextMenuItem}
-          Separator={ContextMenuSeparator}
-          {...handlers}
-        />
-      </ContextMenuContent>
-    </ContextMenu>
+    <div className={className}>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div className="flex min-w-0 flex-1 items-center overflow-hidden">
+            {children}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className={adminDriveMenuContentClass}>
+          <ActionItems
+            item={item}
+            Item={ContextMenuItem}
+            Separator={ContextMenuSeparator}
+            {...handlers}
+          />
+        </ContextMenuContent>
+      </ContextMenu>
+
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 rounded-full text-slate-500 opacity-70 transition-opacity hover:bg-slate-200/80 hover:opacity-100 focus-visible:opacity-100 data-[state=open]:bg-slate-200/80 data-[state=open]:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            title="Ações"
+            aria-label="Ações"
+          >
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          sideOffset={6}
+          className={adminDriveMenuContentClass}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ActionItems
+            item={item}
+            Item={DropdownMenuItem}
+            Separator={DropdownMenuSeparator}
+            {...handlers}
+          />
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {trailing}
+    </div>
   );
 };
 

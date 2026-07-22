@@ -138,8 +138,11 @@ const ContentEditorDialog: React.FC<ContentEditorDialogProps> = ({
       if (
         type === 'Document' ||
         type === 'Folder' ||
+        type === 'Collection' ||
         (mode === 'edit' &&
-          (item?.['@type'] === 'Document' || item?.['@type'] === 'Folder'))
+          (item?.['@type'] === 'Document' ||
+            item?.['@type'] === 'Folder' ||
+            item?.['@type'] === 'Collection'))
       ) {
         if (text.trim()) {
           payload.text = {
@@ -239,8 +242,10 @@ const ContentEditorDialog: React.FC<ContentEditorDialogProps> = ({
               )}
               {(type === 'Document' ||
                 type === 'Folder' ||
+                type === 'Collection' ||
                 item?.['@type'] === 'Document' ||
-                item?.['@type'] === 'Folder') && (
+                item?.['@type'] === 'Folder' ||
+                item?.['@type'] === 'Collection') && (
                 <div className="space-y-2">
                   <Label htmlFor="ce-text">Texto (HTML)</Label>
                   <Textarea

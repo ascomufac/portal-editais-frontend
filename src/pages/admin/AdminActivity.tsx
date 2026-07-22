@@ -2,6 +2,8 @@ import { Button } from '@/components/ui/button';
 import AdminItemHoverCard from '@/components/admin/AdminItemHoverCard';
 import AdminLocationPill from '@/components/admin/AdminLocationPill';
 import AdminRecentItemActions from '@/components/admin/AdminRecentItemActions';
+import AdminReviewStateBadge from '@/components/admin/AdminReviewStateBadge';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +30,7 @@ import {
 } from '@/services/ploneContentService';
 import {
   ChevronDown,
+  ClipboardList,
   FileText,
   Folder,
   History,
@@ -45,6 +48,13 @@ import { useNavigate } from 'react-router-dom';
 
 const ACTIVITY_VIEW_KEY = 'ufac-admin-activity-view';
 const PAGE_SIZE = 60;
+
+export type AdminActivityPreset = 'all' | 'toPublish' | 'mine';
+
+type Props = {
+  /** Atalhos da sidebar: fila de publicação ou itens do usuário. */
+  preset?: AdminActivityPreset;
+};
 
 const TYPE_FILTERS = [
   { id: 'all', label: 'Todos' },
@@ -197,9 +207,13 @@ const activityMetaLine = (item: PloneContentItem, withLocation = false) => {
 
 /**
  * Feed de conteúdo modificado recentemente (auditoria aproximada).
+ * Presets: para publicar (privados/pendentes) e meus editais (Creator).
  */
-const AdminActivity: React.FC = () => {
+const AdminActivity: React.FC<Props> = ({ preset = 'all' }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const myUsername = (user?.username || '').trim();
+
   const [items, setItems] = useState<PloneContentItem[]>([]);
   const [itemsTotal, setItemsTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -221,6 +235,33 @@ const AdminActivity: React.FC = () => {
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const fetchLock = useRef(false);
+
+  const lockCreator = preset === 'mine';
+  const lockVisibility = preset === 'toPublish';
+
+  const pageMeta = useMemo(() => {
+    if (preset === 'toPublish') {
+      return {
+        title: 'Para publicar',
+        subtitle: 'Itens privados ou pendentes que ainda não estão públicos.',
+        Icon: ClipboardList,
+      };
+    }
+    if (preset === 'mine') {
+      return {
+        title: 'Meus editais',
+        subtitle: myUsername
+          ? `Conteúdos criados por @${myUsername}, dos mais recentes.`
+          : 'Conteúdos criados por você, dos mais recentes.',
+        Icon: User,
+      };
+    }
+    return {
+      title: 'Últimas interações',
+      subtitle: 'Conteúdos modificados recentemente no Portal de Editais.',
+      Icon: History,
+    };
+  }, [preset, myUsername]);
 
   const setView = (mode: 'list' | 'grid') => {
     setViewMode(mode);
@@ -246,6 +287,14 @@ const AdminActivity: React.FC = () => {
   const loadPage = useCallback(
     async (bStart: number, append: boolean) => {
       if (fetchLock.current) return;
+      if (preset === 'mine' && !myUsername) {
+        setError('Não foi possível identificar seu usuário. Faça login novamente.');
+        setItems([]);
+        setItemsTotal(0);
+        setLoading(false);
+        return;
+      }
+
       fetchLock.current = true;
       if (append) setLoadingMore(true);
       else {
@@ -253,12 +302,21 @@ const AdminActivity: React.FC = () => {
         setError(null);
       }
       try {
+        const creator =
+          preset === 'mine' ? myUsername : creatorFilter || undefined;
+        const review_state =
+          preset === 'toPublish'
+            ? ['private', 'pending']
+            : stateFilter === 'all'
+              ? undefined
+              : stateFilter;
+
         const { items: list, items_total } = await listRecentActivity({
           b_size: PAGE_SIZE,
           b_start: bStart,
-          Creator: creatorFilter || undefined,
+          Creator: creator,
           portal_type: typeFilter === 'all' ? undefined : typeFilter,
-          review_state: stateFilter === 'all' ? undefined : stateFilter,
+          review_state,
         });
         setItemsTotal(items_total);
         setItems((prev) => {
@@ -284,7 +342,14 @@ const AdminActivity: React.FC = () => {
         setLoadingMore(false);
       }
     },
-    [creatorFilter, typeFilter, stateFilter, mergeCreators]
+    [
+      creatorFilter,
+      typeFilter,
+      stateFilter,
+      mergeCreators,
+      preset,
+      myUsername,
+    ]
   );
 
   const reload = useCallback(() => {
@@ -351,17 +416,21 @@ const AdminActivity: React.FC = () => {
 
   const clearFilters = () => {
     setTypeFilter('all');
-    setStateFilter('all');
-    setCreatorFilter('');
-    setCreatorDraft('');
+    if (!lockVisibility) setStateFilter('all');
+    if (!lockCreator) {
+      setCreatorFilter('');
+      setCreatorDraft('');
+    }
   };
 
   const hasActiveFilters =
-    typeFilter !== 'all' || stateFilter !== 'all' || Boolean(creatorFilter);
+    typeFilter !== 'all' ||
+    (!lockVisibility && stateFilter !== 'all') ||
+    (!lockCreator && Boolean(creatorFilter));
 
   const chipClass = (active: boolean) =>
     cn(
-      'h-8 rounded-full border px-3 text-sm font-medium transition-colors',
+      'inline-flex h-8 items-center gap-1 rounded-full border px-3 text-sm font-medium leading-none transition-colors',
       active
         ? 'border-ufac-blue bg-ufac-lightBlue text-ufac-blue'
         : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
@@ -374,6 +443,7 @@ const AdminActivity: React.FC = () => {
 
   const totalLabel = itemsTotal.toLocaleString('pt-BR');
   const shownLabel = items.length.toLocaleString('pt-BR');
+  const HeaderIcon = pageMeta.Icon;
 
   const listFooter = (
     <div ref={sentinelRef} className="flex flex-col items-center gap-2 py-6">
@@ -405,12 +475,10 @@ const AdminActivity: React.FC = () => {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-normal tracking-tight text-slate-900 sm:text-3xl">
-            <History className="h-7 w-7 text-ufac-blue" />
-            Últimas interações
+            <HeaderIcon className="h-7 w-7 text-ufac-blue" />
+            {pageMeta.title}
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Conteúdos modificados recentemente no Portal de Editais.
-          </p>
+          <p className="mt-1 text-sm text-slate-500">{pageMeta.subtitle}</p>
         </div>
         <Button
           type="button"
@@ -430,7 +498,7 @@ const AdminActivity: React.FC = () => {
           <DropdownMenuTrigger asChild>
             <button type="button" className={chipClass(typeFilter !== 'all')}>
               Tipo{typeFilter !== 'all' ? `: ${typeLabel}` : ''}
-              <ChevronDown className="ml-1 inline h-3.5 w-3.5" />
+              <ChevronDown className="h-3.5 w-3.5 shrink-0" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="rounded-xl">
@@ -442,77 +510,88 @@ const AdminActivity: React.FC = () => {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className={chipClass(Boolean(creatorFilter))}>
-              <User className="mr-1 inline h-3.5 w-3.5" />
-              {creatorFilter ? `Usuário: ${creatorFilter}` : 'Usuário'}
-              <ChevronDown className="ml-1 inline h-3.5 w-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-64 rounded-xl p-2">
-            <DropdownMenuItem
-              onClick={() => {
-                setCreatorFilter('');
-                setCreatorDraft('');
-              }}
-            >
-              Todos os usuários
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <div className="space-y-2 px-1 pb-1 pt-1" onClick={(e) => e.stopPropagation()}>
-              <p className="px-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                Filtrar por login
-              </p>
-              <form
-                className="flex gap-1"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  applyCreator(creatorDraft);
+        {lockCreator ? (
+          <span className={chipClass(true)}>
+            <User className="h-3.5 w-3.5 shrink-0" />
+            Você{myUsername ? `: @${myUsername}` : ''}
+          </span>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className={chipClass(Boolean(creatorFilter))}>
+                <User className="h-3.5 w-3.5 shrink-0" />
+                {creatorFilter ? `Usuário: ${creatorFilter}` : 'Usuário'}
+                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64 rounded-xl p-2">
+              <DropdownMenuItem
+                onClick={() => {
+                  setCreatorFilter('');
+                  setCreatorDraft('');
                 }}
               >
-                <Input
-                  value={creatorDraft}
-                  onChange={(e) => setCreatorDraft(e.target.value)}
-                  placeholder="ex.: antonio"
-                  className="h-8 rounded-lg text-sm"
-                />
-                <Button type="submit" size="sm" className="h-8 rounded-lg px-3">
-                  OK
-                </Button>
-              </form>
-            </div>
-            {knownCreators.length > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                {knownCreators.slice(0, 12).map((name) => (
-                  <DropdownMenuItem key={name} onClick={() => applyCreator(name)}>
-                    {name}
-                  </DropdownMenuItem>
-                ))}
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" className={chipClass(stateFilter !== 'all')}>
-              Visibilidade
-              {stateFilter !== 'all'
-                ? `: ${REVIEW_STATE_LABELS[stateFilter] || stateFilter}`
-                : ''}
-              <ChevronDown className="ml-1 inline h-3.5 w-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="rounded-xl">
-            {STATE_FILTERS.map((s) => (
-              <DropdownMenuItem key={s.id} onClick={() => setStateFilter(s.id)}>
-                {s.label}
+                Todos os usuários
               </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuSeparator />
+              <div className="space-y-2 px-1 pb-1 pt-1" onClick={(e) => e.stopPropagation()}>
+                <p className="px-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                  Filtrar por login
+                </p>
+                <form
+                  className="flex gap-1"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    applyCreator(creatorDraft);
+                  }}
+                >
+                  <Input
+                    value={creatorDraft}
+                    onChange={(e) => setCreatorDraft(e.target.value)}
+                    placeholder="ex.: antonio"
+                    className="h-8 rounded-lg text-sm"
+                  />
+                  <Button type="submit" size="sm" className="h-8 rounded-lg px-3">
+                    OK
+                  </Button>
+                </form>
+              </div>
+              {knownCreators.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  {knownCreators.slice(0, 12).map((name) => (
+                    <DropdownMenuItem key={name} onClick={() => applyCreator(name)}>
+                      {name}
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        {lockVisibility ? (
+          <span className={chipClass(true)}>Visibilidade: privados / pendentes</span>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className={chipClass(stateFilter !== 'all')}>
+                Visibilidade
+                {stateFilter !== 'all'
+                  ? `: ${REVIEW_STATE_LABELS[stateFilter] || stateFilter}`
+                  : ''}
+                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="rounded-xl">
+              {STATE_FILTERS.map((s) => (
+                <DropdownMenuItem key={s.id} onClick={() => setStateFilter(s.id)}>
+                  {s.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {hasActiveFilters && (
           <button
@@ -616,16 +695,7 @@ const AdminActivity: React.FC = () => {
                             </p>
                           </AdminItemHoverCard>
                         </div>
-                        {state && state !== 'published' && (
-                          <span
-                            className={cn(
-                              'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white',
-                              state === 'private' ? 'bg-slate-500' : 'bg-slate-400'
-                            )}
-                          >
-                            {REVIEW_STATE_LABELS[state] || state}
-                          </span>
-                        )}
+                        <AdminReviewStateBadge state={state} />
                       </div>
                       <p className="truncate text-[10px] leading-tight text-slate-500">
                         {activityMetaLine(item, true)}
@@ -665,17 +735,13 @@ const AdminActivity: React.FC = () => {
                     >
                       <ActivityIcon item={item} />
                       <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <div className="flex min-w-0 flex-nowrap items-center gap-1.5">
                           <AdminItemHoverCard item={item} side="top" align="start">
-                            <p className="truncate text-sm font-medium text-slate-900">
+                            <p className="min-w-0 truncate text-sm font-medium text-slate-900">
                               {getContentDisplayName(item)}
                             </p>
                           </AdminItemHoverCard>
-                          {state === 'private' && (
-                            <span className="shrink-0 rounded-full bg-slate-500 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
-                              {REVIEW_STATE_LABELS.private}
-                            </span>
-                          )}
+                          <AdminReviewStateBadge state={state} />
                         </div>
                         <p className="mt-0.5 truncate text-xs text-slate-500">
                           {activityMetaLine(item)}

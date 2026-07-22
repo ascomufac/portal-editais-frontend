@@ -380,6 +380,11 @@ export const listFolderContents = async (
     portal_type?: string;
     review_state?: string;
     SearchableText?: string;
+    Creator?: string;
+    /** ISO date — itens com modified >= valor */
+    modifiedAfter?: string;
+    /** Se true, pesquisa na subárvore (sem depth=1). */
+    deep?: boolean;
   } = {}
 ): Promise<{
   parent: PloneContentItem;
@@ -392,10 +397,20 @@ export const listFolderContents = async (
     portal_type,
     review_state,
     SearchableText,
+    Creator,
+    modifiedAfter,
+    deep = false,
   } = options;
   const params = new URLSearchParams();
   // @search com depth=1 inclui private quando autenticado (folder.items costuma vir do cache).
-  params.append('path.depth', '1');
+  const useDeep =
+    deep ||
+    Boolean(SearchableText?.trim()) ||
+    Boolean(Creator?.trim()) ||
+    Boolean(modifiedAfter?.trim());
+  if (!useDeep) {
+    params.append('path.depth', '1');
+  }
   params.append('metadata_fields', 'Creator');
   params.append('metadata_fields', 'modified');
   params.append('metadata_fields', 'created');
@@ -405,7 +420,13 @@ export const listFolderContents = async (
   params.append('metadata_fields', 'portal_type');
   params.append('b_size', String(b_size));
   params.append('b_start', String(b_start));
-  params.append('sort_on', 'getObjPositionInParent');
+  params.append(
+    'sort_on',
+    useDeep ? 'modified' : 'getObjPositionInParent'
+  );
+  if (useDeep) {
+    params.append('sort_order', 'descending');
+  }
 
   if (portal_type?.trim()) {
     params.append('portal_type', portal_type.trim());
@@ -415,6 +436,13 @@ export const listFolderContents = async (
   }
   if (SearchableText?.trim()) {
     params.append('SearchableText', SearchableText.trim());
+  }
+  if (Creator?.trim()) {
+    params.append('Creator', Creator.trim());
+  }
+  if (modifiedAfter?.trim()) {
+    params.append('modified.query', modifiedAfter.trim());
+    params.append('modified.range', 'min');
   }
 
   const parentEndpoint = pathToApiEndpoint(path) || '/';
@@ -522,7 +550,7 @@ export const listRecentActivity = async (
     /** Username do criador (índice Creator do catálogo). */
     Creator?: string;
     portal_type?: string | string[];
-    review_state?: string;
+    review_state?: string | string[];
   } = {}
 ): Promise<{ items: PloneContentItem[]; items_total: number }> => {
   const { b_size = 40, b_start = 0, Creator, portal_type, review_state } = options;
@@ -547,14 +575,87 @@ export const listRecentActivity = async (
       if (t) params.append('portal_type', t);
     });
   }
-  if (review_state?.trim()) {
-    params.append('review_state', review_state.trim());
+  if (review_state) {
+    const states = Array.isArray(review_state) ? review_state : [review_state];
+    states.forEach((s) => {
+      if (s?.trim()) params.append('review_state', s.trim());
+    });
   }
 
   const data = await apiRequest<{
     items?: PloneContentItem[];
     items_total?: number;
   }>(`/@search?${params.toString()}`);
+
+  return {
+    items: Array.isArray(data.items) ? data.items.map(normalizeContentItem) : [],
+    items_total: data.items_total ?? 0,
+  };
+};
+
+/**
+ * Busca global no portal (autocomplete / resultados estilo Drive).
+ * Sem path.depth: pesquisa em toda a árvore (ou sob `path` se informado).
+ */
+export const searchPortalContent = async (
+  options: {
+    SearchableText?: string;
+    portal_type?: string | string[];
+    Creator?: string;
+    /** ISO date — itens com modified >= valor */
+    modifiedAfter?: string;
+    path?: string;
+    b_size?: number;
+    b_start?: number;
+  } = {}
+): Promise<{ items: PloneContentItem[]; items_total: number }> => {
+  const {
+    SearchableText,
+    portal_type,
+    Creator,
+    modifiedAfter,
+    path = '',
+    b_size = 20,
+    b_start = 0,
+  } = options;
+
+  const params = new URLSearchParams();
+  params.append('sort_on', 'modified');
+  params.append('sort_order', 'descending');
+  params.append('b_size', String(b_size));
+  params.append('b_start', String(b_start));
+  params.append('metadata_fields', 'Creator');
+  params.append('metadata_fields', 'modified');
+  params.append('metadata_fields', 'created');
+  params.append('metadata_fields', 'review_state');
+  params.append('metadata_fields', 'is_folderish');
+  params.append('metadata_fields', 'portal_type');
+
+  if (SearchableText?.trim()) {
+    params.append('SearchableText', SearchableText.trim());
+  }
+  if (Creator?.trim()) {
+    params.append('Creator', Creator.trim());
+  }
+  if (portal_type) {
+    const types = Array.isArray(portal_type) ? portal_type : [portal_type];
+    types.forEach((t) => {
+      if (t?.trim()) params.append('portal_type', t.trim());
+    });
+  }
+  if (modifiedAfter?.trim()) {
+    params.append('modified.query', modifiedAfter.trim());
+    params.append('modified.range', 'min');
+  }
+
+  const endpoint = path.trim()
+    ? `${withService(path, '@search')}?${params.toString()}`
+    : `/@search?${params.toString()}`;
+
+  const data = await apiRequest<{
+    items?: PloneContentItem[];
+    items_total?: number;
+  }>(endpoint);
 
   return {
     items: Array.isArray(data.items) ? data.items.map(normalizeContentItem) : [],
@@ -617,6 +718,30 @@ export const copyContent = async (
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ source: sourceUrl }),
+  });
+};
+
+/**
+ * Reordena um item dentro da pasta (PATCH ordering do Plone).
+ * delta: "top" | "bottom" | número (positivo = desce, negativo = sobe).
+ */
+export const reorderFolderItem = async (
+  folderPath: string,
+  objId: string,
+  delta: 'top' | 'bottom' | number,
+  subsetIds?: string[]
+): Promise<void> => {
+  const base = pathToApiEndpoint(folderPath) || '/';
+  await apiRequest(base, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ordering: {
+        obj_id: objId,
+        delta,
+        ...(subsetIds && subsetIds.length > 0 ? { subset_ids: subsetIds } : {}),
+      },
+    }),
   });
 };
 

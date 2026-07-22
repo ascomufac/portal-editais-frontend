@@ -63,6 +63,11 @@ const App = () => (
               <Route path="/admin" element={<AdminShell />}>
                 <Route index element={<AdminHome />} />
                 <Route path="atividade" element={<AdminActivity />} />
+                <Route
+                  path="para-publicar"
+                  element={<AdminActivity preset="toPublish" />}
+                />
+                <Route path="meus" element={<AdminActivity preset="mine" />} />
                 <Route path="conteudo" element={<ContentBrowser />} />
                 <Route path="conteudo/*" element={<ContentBrowser />} />
               </Route>
