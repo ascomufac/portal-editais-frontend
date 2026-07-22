@@ -159,7 +159,56 @@ export interface MenuItem {
   remoteUrl?: string;
   /** Subitens do @navigation Plone (accordion) */
   children?: MenuItem[];
+  /** Grupo sintético (ex.: "Por ano") — não navega sozinho */
+  isGroup?: boolean;
 }
+
+/** Pastas nomeadas só com ano (2026) ou "Antes 2014" */
+const isYearFolderTitle = (title: string) =>
+  /^\d{4}$/.test(title.trim()) || /^antes\b/i.test(title.trim());
+
+/**
+ * Agrupa pastas de ano sob um item "Por ano" para deixar a hierarquia legível.
+ */
+export const groupYearFolders = (items: MenuItem[], parentId: string): MenuItem[] => {
+  const years: MenuItem[] = [];
+  const rest: MenuItem[] = [];
+
+  for (const item of items) {
+    const withNested = item.children?.length
+      ? { ...item, children: groupYearFolders(item.children, item.id) }
+      : item;
+
+    if (isYearFolderTitle(item.title)) {
+      years.push(withNested);
+    } else {
+      rest.push(withNested);
+    }
+  }
+
+  if (years.length < 2) {
+    return items.map((item) =>
+      item.children?.length
+        ? { ...item, children: groupYearFolders(item.children, item.id) }
+        : item
+    );
+  }
+
+  // Anos mais recentes primeiro
+  years.sort((a, b) => b.title.localeCompare(a.title, 'pt-BR', { numeric: true }));
+
+  return [
+    ...rest,
+    {
+      id: `${parentId}__por-ano`,
+      title: 'Por ano',
+      url: '',
+      href: '#',
+      isGroup: true,
+      children: years,
+    },
+  ];
+};
 
 /**
  * Interface para um item de edital
@@ -354,7 +403,15 @@ const buildSearchParams = (params: SearchParams = {}): URLSearchParams => {
 };
 
 // Cache interno no módulo
+const MENU_NAV_DEPTH = 3;
 let cachedMenuItems: MenuItem[] | null = null;
+let cachedNavDepth: number | null = null;
+
+/** Invalida cache do menu */
+export const clearMenuItemsCache = () => {
+  cachedMenuItems = null;
+  cachedNavDepth = null;
+};
 
 type PloneNavNode = {
   '@id': string;
@@ -436,14 +493,14 @@ const mapApiItemToMenuItem = (
  * Menu do portal via @navigation do Plone (com submenus) + Links extras da raiz.
  */
 export const fetchMenuItems = async (): Promise<MenuItem[]> => {
-  if (cachedMenuItems) {
-    return sortMenuItems(cachedMenuItems);
+  if (cachedMenuItems && cachedNavDepth === MENU_NAV_DEPTH) {
+    return cachedMenuItems;
   }
 
   try {
     // Navegação oficial do Plone (mesma base do portal www3)
     const nav = await apiRequest<{ items?: PloneNavNode[] }>(
-      '@navigation?expand.navigation.depth=2'
+      `@navigation?expand.navigation.depth=${MENU_NAV_DEPTH}`
     );
 
     const fromNav = (nav.items || [])
@@ -468,7 +525,12 @@ export const fetchMenuItems = async (): Promise<MenuItem[]> => {
     }
 
     // Mantém ordem do portal: pró-reitorias → CAP → idiomas → DCE → demais
-    cachedMenuItems = sortMenuItems([...extras, ...fromNav]);
+    cachedMenuItems = sortMenuItems([...extras, ...fromNav]).map((item) =>
+      item.children?.length
+        ? { ...item, children: groupYearFolders(item.children, item.id) }
+        : item
+    );
+    cachedNavDepth = MENU_NAV_DEPTH;
     return cachedMenuItems;
   } catch (error) {
     console.error('Erro ao buscar menu via @navigation, tentando raiz:', error);

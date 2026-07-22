@@ -136,7 +136,7 @@ const SectionIcon: React.FC<{ section: string; className?: string }> = ({
 };
 
 const getResultHref = (result: SearchResult): string => {
-  if (isPdf(result.url)) {
+  if (isPdf(result.url, result.title)) {
     return `/visualizar-pdf/${encodeURIComponent(result.url)}`;
   }
   try {

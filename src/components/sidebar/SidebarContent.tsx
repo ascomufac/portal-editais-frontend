@@ -2,6 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMenuItems } from '@/hooks/useMenuItems';
 import { cn } from '@/lib/utils';
 import { MenuItem } from '@/services/editalService';
+import { ChevronDown } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import SidebarGroup from './SidebarGroup';
@@ -22,8 +23,11 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
   const location = useLocation();
   const { menuItems, isLoading, error } = useMenuItems();
 
-  const isItemActive = (item: MenuItem) => {
-    if (!item.href || item.href.startsWith('http')) return false;
+  const isItemActive = (item: MenuItem): boolean => {
+    if (item.isGroup) {
+      return Boolean(item.children?.some((child) => isItemActive(child)));
+    }
+    if (!item.href || item.href === '#' || item.href.startsWith('http')) return false;
     return (
       location.pathname === item.href ||
       location.pathname.startsWith(`${item.href}/`) ||
@@ -35,11 +39,22 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
   };
 
   useEffect(() => {
-    const activeWithChildren = menuItems.find(
-      (item) => item.children && item.children.length > 0 && isItemActive(item)
-    );
-    if (activeWithChildren && !expandedItems.includes(activeWithChildren.id)) {
-      setExpandedItems((prev) => [...prev, activeWithChildren.id]);
+    const toExpand: string[] = [];
+
+    const walk = (items: MenuItem[], ancestors: string[] = []) => {
+      for (const item of items) {
+        if (item.children?.length) {
+          if (isItemActive(item) || item.children.some((c) => isItemActive(c))) {
+            toExpand.push(...ancestors, item.id);
+          }
+          walk(item.children, [...ancestors, item.id]);
+        }
+      }
+    };
+
+    walk(menuItems);
+    if (toExpand.length) {
+      setExpandedItems((prev) => Array.from(new Set([...prev, ...toExpand])));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, menuItems]);
@@ -54,7 +69,9 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
     closeSidebar();
   };
 
-  const renderChildLink = (item: MenuItem) => {
+  const renderNavLink = (item: MenuItem, depth: number) => {
+    const style = depth > 0 ? { paddingLeft: `${0.75 + depth * 0.65}rem` } : undefined;
+
     if (item.href.startsWith('http')) {
       return (
         <a
@@ -63,8 +80,12 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
           target="_blank"
           rel="noopener noreferrer"
           onClick={handleDirectLinkClick}
-          className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-ufac-blue"
           title={item.title}
+          style={style}
+          className={cn(
+            'block rounded-md py-1.5 pr-3 text-sm text-gray-600 hover:bg-gray-100 hover:text-ufac-blue',
+            depth === 0 && 'px-3 py-2 text-gray-700'
+          )}
         >
           <span className="line-clamp-2">{item.title}</span>
         </a>
@@ -77,17 +98,90 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
         to={item.href}
         onClick={handleDirectLinkClick}
         title={item.title}
+        style={style}
         className={({ isActive }) =>
           cn(
-            'block rounded-md px-3 py-2 text-sm transition-colors',
+            'block rounded-md py-1.5 pr-3 text-sm transition-colors',
+            depth === 0 && 'px-3 py-2',
             isActive
               ? 'bg-ufac-lightBlue font-medium text-ufac-blue'
-              : 'text-gray-700 hover:bg-gray-100 hover:text-ufac-blue'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-ufac-blue',
+            depth > 0 && 'ml-2 border-l border-slate-200'
           )
         }
       >
         <span className="line-clamp-2">{item.title}</span>
       </NavLink>
+    );
+  };
+
+  /** Subárvore aninhada (filhos de um setor) */
+  const renderNestedItem = (item: MenuItem, depth: number): React.ReactNode => {
+    const hasChildren = Boolean(item.children && item.children.length > 0);
+
+    if (!hasChildren) {
+      return renderNavLink(item, depth);
+    }
+
+    const open = expandedItems.includes(item.id);
+    const active = isItemActive(item);
+    const padLeft = 0.75 + depth * 0.65;
+
+    return (
+      <div key={item.id} className="space-y-0.5">
+        <div
+          style={{ paddingLeft: `${padLeft}rem` }}
+          className={cn(
+            'flex w-full items-center gap-0.5 rounded-md py-0.5 pr-1',
+            depth > 0 && 'ml-2 border-l border-slate-200'
+          )}
+        >
+          <button
+            type="button"
+            onClick={() => toggleExpand(item.id)}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-ufac-blue"
+            aria-expanded={open}
+            aria-label={open ? `Recolher ${item.title}` : `Expandir ${item.title}`}
+          >
+            <ChevronDown
+              className={cn(
+                'h-3.5 w-3.5 transition-transform',
+                open ? 'rotate-0' : '-rotate-90'
+              )}
+            />
+          </button>
+
+          {item.isGroup || !item.href || item.href === '#' ? (
+            <button
+              type="button"
+              onClick={() => toggleExpand(item.id)}
+              className="min-w-0 flex-1 rounded-md px-1 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-gray-50"
+            >
+              {item.title}
+            </button>
+          ) : (
+            <NavLink
+              to={item.href}
+              onClick={handleDirectLinkClick}
+              title={item.title}
+              className={cn(
+                'min-w-0 flex-1 rounded-md px-1 py-1.5 text-sm font-medium line-clamp-2',
+                active
+                  ? 'text-ufac-blue'
+                  : 'text-gray-700 hover:bg-gray-50 hover:text-ufac-blue'
+              )}
+            >
+              {item.title}
+            </NavLink>
+          )}
+        </div>
+
+        {open && (
+          <div className="space-y-0.5 pb-1">
+            {item.children!.map((child) => renderNestedItem(child, depth + 1))}
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -146,7 +240,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
         isCollapsed={isCollapsed}
         parentPath={item.href}
       >
-        {item.children!.map((child) => renderChildLink(child))}
+        {item.children!.map((child) => renderNestedItem(child, 0))}
       </SidebarGroup>
     );
   };

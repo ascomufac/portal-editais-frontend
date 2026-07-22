@@ -1,7 +1,3 @@
-/**
- * Hook para gerenciar os itens do menu a partir da API Plone
- * @module useMenuItems
- */
 import { useEffect, useState } from 'react';
 import { MenuItem, fetchMenuItems } from '@/services/editalService';
 

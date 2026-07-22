@@ -1,8 +1,11 @@
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { getPloneDownloadUrl } from '@/components/pdf/utils/pdfUtils';
+import { toEditalHref } from '@/services/editalService';
 import { extractFileNameFromUrl, searchDocuments, SearchResult } from '@/services/searchService';
+import { isPdf } from '@/services/search/utils';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronRight, X } from 'lucide-react';
+import { ChevronRight, Copy, Download, Eye, X } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FileTypeIcon from './icons/FileTypeIcon';
@@ -11,6 +14,17 @@ import SearchFilter, { SearchSection } from './SearchFilter';
 import SearchLoader from './SearchLoader';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+
+const getResultAppHref = (result: SearchResult): string => {
+  if (isPdf(result.url, result.title)) {
+    return `/visualizar-pdf/${encodeURIComponent(result.url)}`;
+  }
+  try {
+    return toEditalHref(result.url);
+  } catch {
+    return result.url;
+  }
+};
 
 const SearchBar: React.FC<{
   compact?: boolean;
@@ -170,6 +184,59 @@ const SearchBar: React.FC<{
 
   const showNoResults = searchQuery.length > 2 && !loading && results.length === 0;
 
+  const closeAndGo = (href: string) => {
+    setIsOpen(false);
+    onRequestClose?.();
+    navigate(href);
+  };
+
+  const handleOpenResult = (result: SearchResult) => {
+    if (isPdf(result.url, result.title)) {
+      closeAndGo(`/visualizar-pdf/${encodeURIComponent(result.url)}`);
+      return;
+    }
+    if (result.type === 'File') {
+      const link = getPloneDownloadUrl(result.url) || result.url;
+      window.open(link, '_blank', 'noopener,noreferrer');
+      setIsOpen(false);
+      onRequestClose?.();
+      return;
+    }
+    closeAndGo(getResultAppHref(result));
+  };
+
+  const handleViewPdf = (result: SearchResult, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeAndGo(`/visualizar-pdf/${encodeURIComponent(result.url)}`);
+  };
+
+  const handleCopyUrl = async (result: SearchResult, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const link = getPloneDownloadUrl(result.url) || result.url;
+    try {
+      await navigator.clipboard.writeText(link);
+      toast({
+        title: 'Link copiado!',
+        description: 'O link foi copiado para a área de transferência.',
+      });
+    } catch {
+      toast({
+        title: 'Erro ao copiar',
+        description: 'Não foi possível copiar o link.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDownload = (result: SearchResult, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const link = getPloneDownloadUrl(result.url) || result.url;
+    window.open(link, '_blank', 'noopener,noreferrer');
+  };
+
   const resultsPanel = isOpen && searchQuery.length > 2 && (
     <motion.div
       key="search-results"
@@ -192,51 +259,96 @@ const SearchBar: React.FC<{
       ) : displayedResults.length > 0 ? (
         <>
           <div className="p-2">
-            {displayedResults.map((result, index) => (
-              <a
-                key={result.id}
-                href={result.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  'flex my-1 items-center gap-3 py-3 px-4 rounded-3xl cursor-pointer transition-colors duration-150',
-                  index % 2 === 0 ? 'bg-white' : 'bg-[#F6F6F7]',
-                  'hover:bg-ufac-lightBlue'
-                )}
-              >
-                <FileTypeIcon
-                  source={result.url}
-                  sources={[result.title]}
-                  size={20}
-                  className="flex items-center justify-center w-8 h-8 rounded-full p-1.5 min-w-8"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-800 truncate">
-                    {getTitle(result)}
+            {displayedResults.map((result, index) => {
+              const pdf = isPdf(result.url, result.title);
+              const isFile = pdf || result.type === 'File';
+
+              return (
+                <div
+                  key={result.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleOpenResult(result)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleOpenResult(result);
+                    }
+                  }}
+                  className={cn(
+                    'my-1 flex items-center gap-2 rounded-2xl px-3 py-2.5 transition-colors duration-150 cursor-pointer',
+                    index % 2 === 0 ? 'bg-white' : 'bg-[#F6F6F7]',
+                    'hover:bg-ufac-lightBlue'
+                  )}
+                >
+                  <FileTypeIcon
+                    source={result.url}
+                    sources={[result.title]}
+                    size={20}
+                    className="flex h-8 w-8 min-w-8 items-center justify-center rounded-full p-1.5"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-gray-800">
+                      {getTitle(result)}
+                    </div>
+                    {result.date && (
+                      <div className="mt-0.5 text-xs text-gray-500">
+                        {getResultDate(result)}
+                      </div>
+                    )}
                   </div>
-                  {result.date && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      {getResultDate(result)}
+
+                  {isFile && (
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      {pdf && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-full text-gray-500 hover:text-ufac-blue"
+                          title="Visualizar no app"
+                          onClick={(e) => handleViewPdf(result, e)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full text-gray-500 hover:text-ufac-blue"
+                        title="Copiar link"
+                        onClick={(e) => handleCopyUrl(result, e)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full text-gray-500 hover:text-ufac-blue"
+                        title="Baixar"
+                        onClick={(e) => handleDownload(result, e)}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
                     </div>
                   )}
                 </div>
-              </a>
-            ))}
+              );
+            })}
           </div>
 
           {(hasMoreResults || totalResults > displayedResults.length) && (
             <div className="mt-0 border-t border-gray-100">
-              <a
-                href={`/resultados-busca?q=${encodeURIComponent(searchQuery)}&section=${selectedSection}`}
-                className="flex items-center justify-between w-full p-4 text-[#3366FF] font-medium rounded-b-xl transition-colors hover:bg-[#EEF3FF]"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleSeeMoreResults();
-                }}
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-b-xl p-4 font-medium text-[#3366FF] transition-colors hover:bg-[#EEF3FF]"
+                onClick={handleSeeMoreResults}
               >
                 Ver mais resultados ({totalResults})
                 <ChevronRight className="h-5 w-5" />
-              </a>
+              </button>
             </div>
           )}
         </>
