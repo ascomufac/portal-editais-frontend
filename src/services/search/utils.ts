@@ -4,20 +4,20 @@
  * @param {string} url - URL para verificar
  * @returns {boolean} - true se for um PDF, false caso contrário
  */
-export const isPdf = (url: string): boolean => {
-  // Handle undefined or null values
-  if (!url) return false;
-  
-  // Verifica extensão .pdf no final da URL
-  if (url.toLowerCase().endsWith('.pdf')) return true;
-  
-  // Verifica se há /view ou /download seguido por /pdf no URL (caso seja um visualizador de PDF)
-  if (url.toLowerCase().includes('/view/pdf') || url.toLowerCase().includes('/download/pdf')) return true;
-  
-  // Verifica se a URL contém file_pdf ou pdf_file em seu caminho
-  if (url.toLowerCase().includes('file_pdf') || url.toLowerCase().includes('pdf_file')) return true;
-  
-  return false;
+export const isPdf = (url: string, title?: string): boolean => {
+  if (!url && !title) return false;
+
+  const candidates = [url, title].filter(Boolean).map((s) => s!.toLowerCase());
+
+  return candidates.some(
+    (value) =>
+      value.endsWith('.pdf') ||
+      value.includes('.pdf') ||
+      value.includes('/view/pdf') ||
+      value.includes('/download/pdf') ||
+      value.includes('file_pdf') ||
+      value.includes('pdf_file')
+  );
 };
 
 /**
