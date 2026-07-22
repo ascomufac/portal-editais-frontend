@@ -1,4 +1,3 @@
-
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,7 +6,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
-import AdminPage from "./pages/AdminPage";
+import AdminActivity from "./pages/admin/AdminActivity";
+import AdminHome from "./pages/admin/AdminHome";
+import AdminShell from "./pages/admin/AdminShell";
+import ContentBrowser from "./pages/admin/ContentBrowser";
 import EditalDetail from "./pages/EditalDetail";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -57,7 +59,14 @@ const App = () => (
               <Route path="/edital/*" element={<EditalDetail />} />
               <Route path="/visualizar-pdf/:pdfUrl" element={<PdfViewerPage />} />
               <Route path="/setor/:setor/:page?" element={<SetorPage />} />
-              <Route path="/admin" element={<AdminPage />} />
+
+              <Route path="/admin" element={<AdminShell />}>
+                <Route index element={<AdminHome />} />
+                <Route path="atividade" element={<AdminActivity />} />
+                <Route path="conteudo" element={<ContentBrowser />} />
+                <Route path="conteudo/*" element={<ContentBrowser />} />
+              </Route>
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AnimatePresence>

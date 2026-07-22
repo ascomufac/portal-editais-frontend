@@ -6,6 +6,23 @@ import { BASE_URL } from '@/services/ploneConfig';
 const TOKEN_KEY = 'ufac_editais_jwt';
 const USER_KEY = 'ufac_editais_user';
 
+/**
+ * Cookie dummy para o Varnish do www3: ele só faz bypass de cache com `__ac`,
+ * e ignora Authorization Bearer — senão GETs autenticados recebem listagem anônima
+ * (sem pastas private).
+ */
+const VARNISH_BYPASS_COOKIE = '__ac=ufac-editais; path=/; SameSite=Lax';
+
+const setVarnishBypassCookie = () => {
+  if (typeof document === 'undefined') return;
+  document.cookie = VARNISH_BYPASS_COOKIE;
+};
+
+const clearVarnishBypassCookie = () => {
+  if (typeof document === 'undefined') return;
+  document.cookie = '__ac=; path=/; Max-Age=0; SameSite=Lax';
+};
+
 export type AuthUser = {
   id: string;
   username: string;
@@ -34,11 +51,18 @@ export const getAccessToken = (): string | null => {
 
 export const setAccessToken = (token: string) => {
   sessionStorage.setItem(TOKEN_KEY, token);
+  setVarnishBypassCookie();
 };
 
 export const clearAccessToken = () => {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
+  clearVarnishBypassCookie();
+};
+
+/** Garante cookie de bypass se já houver JWT (ex.: refresh da página). */
+export const ensureAuthCookies = () => {
+  if (getAccessToken()) setVarnishBypassCookie();
 };
 
 export const getCachedUser = (): AuthUser | null => {
