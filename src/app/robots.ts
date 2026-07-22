@@ -14,7 +14,13 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin', '/admin/', '/resultados-busca', '/visualizar-pdf'],
+        disallow: [
+          '/admin',
+          '/admin/',
+          '/resultados-busca',
+          '/visualizar-pdf',
+          '/favoritos',
+        ],
       },
     ],
     sitemap: `${base}/sitemap.xml`,
