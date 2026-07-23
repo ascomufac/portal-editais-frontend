@@ -1,27 +1,26 @@
 'use client';
 
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from '@/components/ui/table';
+import FavoriteStarButton from '@/components/FavoriteStarButton';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/components/ui/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { isPdf } from '@/services/search/utils';
 import { EditalDocumentType } from '@/types/edital';
 import { motion } from 'framer-motion';
 import {
-	Calendar,
+	ArrowUpDown,
+	CalendarDays,
 	ChevronRight,
 	Download,
 	Eye,
 	FileText,
 	Folder,
-	Undo,
-	UserCircle,
+	Link2,
+	RefreshCw,
+	Sparkles,
+	Undo2,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -30,13 +29,20 @@ import FileTypeIcon, {
 	getFileKind,
 } from '../icons/FileTypeIcon';
 import EditalBreadcrumb from './EditalBreadcrumb';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/components/ui/use-toast';
 import EditalFolderSkeleton from './EditalFolderSkeleton';
 import EditalHeaderSkeleton from './EditalHeaderSkeleton';
-import { Button } from '@/components/ui/button';
+
+export type EditalNavigatorHeader = {
+	title: string;
+	description?: string;
+	htmlContent?: string;
+	portalType?: string;
+	isFolderish?: boolean;
+	favoriteId: string;
+	favoriteHref: string;
+	publishedLabel?: string | null;
+	updatedLabel?: string | null;
+};
 
 interface EditalFolderNavigatorProps {
 	documents: EditalDocumentType[];
@@ -48,12 +54,133 @@ interface EditalFolderNavigatorProps {
 	getCurrentFolderContents: () => EditalDocumentType[];
 	editalTitle?: string;
 	isLoading?: boolean;
+	header?: EditalNavigatorHeader;
 }
 
-interface SortOptions {
-	field: 'title' | 'modified' | 'created' | 'Creator';
-	direction: 'asc' | 'desc';
+const MIN_VALID_YEAR = 1990;
+
+/** Só aceita datas reais (ignora o sentinela 1969 do Plone em `effective`). */
+export function parsePloneDate(value?: string | null): Date | null {
+	if (!value || value === 'None' || value === 'null') return null;
+	const time = Date.parse(value);
+	if (!Number.isFinite(time)) return null;
+	const date = new Date(time);
+	if (date.getUTCFullYear() < MIN_VALID_YEAR) return null;
+	return date;
 }
+
+/** Data pública do arquivo na timeline: sempre `created`. */
+export function getDocumentTimelineDate(item: {
+	created?: string;
+	modified?: string;
+	lastModified?: string;
+}): Date | null {
+	return (
+		parsePloneDate(item.created) ||
+		parsePloneDate(item.modified) ||
+		parsePloneDate(item.lastModified)
+	);
+}
+
+export function formatTimelineDateLabel(date: Date | null): string {
+	if (!date) return '';
+	try {
+		return new Intl.DateTimeFormat('pt-BR', {
+			day: '2-digit',
+			month: 'short',
+			year: 'numeric',
+		}).format(date);
+	} catch {
+		return '';
+	}
+}
+
+export function formatTimelineTimeLabel(date: Date | null): string {
+	if (!date) return '';
+	try {
+		return new Intl.DateTimeFormat('pt-BR', {
+			hour: '2-digit',
+			minute: '2-digit',
+		}).format(date);
+	} catch {
+		return '';
+	}
+}
+
+const isFolderItem = (item: EditalDocumentType) =>
+	Boolean(
+		item.isFolder ||
+			item.is_folderish ||
+			item['@type'] === 'Folder' ||
+			item['@type'] === 'Collection'
+	);
+
+const DocumentActions = ({
+	item,
+	isMobile,
+	emphasized = false,
+	onView,
+	onCopy,
+}: {
+	item: EditalDocumentType;
+	isMobile: boolean;
+	emphasized?: boolean;
+	onView: (url: string) => void;
+	onCopy: (url: string) => void;
+}) => {
+	const fileUrl = item.url || item['@id'] || '';
+	const canPreview = isPdf(fileUrl) || isPdf(item['@id'] || '');
+
+	return (
+		<div className="flex shrink-0 flex-wrap gap-1.5 sm:justify-end">
+			{canPreview && (
+				<Button
+					size={emphasized ? 'default' : 'sm'}
+					variant="default"
+					className={cn(
+						'gap-1.5 rounded-full bg-ufac-blue hover:bg-ufac-blue/90',
+						emphasized ? 'h-10 px-4 text-sm' : 'h-9 px-3 text-xs'
+					)}
+					onClick={() => onView(fileUrl)}
+				>
+					<Eye className={emphasized ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
+					Ler PDF
+				</Button>
+			)}
+			<Button
+				asChild
+				size={emphasized ? 'default' : 'sm'}
+				variant={emphasized && !canPreview ? 'default' : 'outline'}
+				className={cn(
+					'gap-1.5 rounded-full',
+					emphasized ? 'h-10 px-4 text-sm' : 'h-9 px-3 text-xs',
+					emphasized &&
+						!canPreview &&
+						'bg-ufac-blue text-white hover:bg-ufac-blue/90'
+				)}
+			>
+				<a href={fileUrl} target="_blank" rel="noreferrer" download>
+					<Download className={emphasized ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
+					Baixar
+				</a>
+			</Button>
+			{!isMobile && (
+				<Button
+					size={emphasized ? 'default' : 'sm'}
+					variant="ghost"
+					className={cn(
+						'rounded-full p-0 text-slate-500',
+						emphasized ? 'h-10 w-10' : 'h-9 w-9'
+					)}
+					aria-label="Copiar link do arquivo"
+					onClick={() => onCopy(fileUrl)}
+				>
+					<Link2 className={emphasized ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
+				</Button>
+			)}
+		</div>
+	);
+};
 
 const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 	currentFolder,
@@ -64,48 +191,24 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 	getCurrentFolderContents,
 	editalTitle,
 	isLoading = false,
+	header,
 }) => {
 	const isMobile = useIsMobile();
 	const router = useRouter();
 	const { toast } = useToast();
 	const currentItems = getCurrentFolderContents();
 
-	const [itemTypeFilter, setItemTypeFilter] = useState<'all' | 'folder' | 'file'>('all');
-	const [searchQuery, setSearchQuery] = useState('');
-	const [sortOptions, setSortOptions] = useState<SortOptions>({
-		field: 'modified',
-		direction: 'desc',
-	});
-
-	const isFolderItem = (item: EditalDocumentType) =>
-		Boolean(
-			item.isFolder ||
-				item.is_folderish ||
-				item['@type'] === 'Folder' ||
-				item['@type'] === 'Collection'
-		);
-
-	const searchableItems = useMemo(() => {
-		if (!searchQuery.trim()) return currentItems;
-		const query = searchQuery.toLowerCase();
-		return currentItems.filter(
-			(item) =>
-				item.title.toLowerCase().includes(query) ||
-				(item.description && item.description.toLowerCase().includes(query))
-		);
-	}, [currentItems, searchQuery]);
+	const [itemTypeFilter, setItemTypeFilter] = useState<'all' | 'folder' | 'file'>(
+		'all'
+	);
+	const [newestFirst, setNewestFirst] = useState(true);
 
 	const typeCounts = useMemo(() => {
-		const folders = searchableItems.filter(isFolderItem).length;
-		const files = searchableItems.length - folders;
-		return {
-			all: searchableItems.length,
-			folder: folders,
-			file: files,
-		};
-	}, [searchableItems]);
+		const folders = currentItems.filter(isFolderItem).length;
+		const files = currentItems.length - folders;
+		return { all: currentItems.length, folder: folders, file: files };
+	}, [currentItems]);
 
-	/** Só faz sentido filtrar quando há pastas e arquivos */
 	const showTypeFilter = typeCounts.folder > 0 && typeCounts.file > 0;
 
 	useEffect(() => {
@@ -114,135 +217,176 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 		}
 	}, [showTypeFilter, itemTypeFilter]);
 
-	const documentVariants = {
-		initial: { opacity: 0, y: 10 },
-		animate: { opacity: 1, y: 0 },
-		exit: { opacity: 0, y: -10 },
-	};
-
-	const processedItems = useMemo(() => {
-		let filtered = [...searchableItems];
-
+	const { folders, files } = useMemo(() => {
+		let items = [...currentItems];
 		if (itemTypeFilter !== 'all') {
-			filtered = filtered.filter((item) =>
+			items = items.filter((item) =>
 				itemTypeFilter === 'folder' ? isFolderItem(item) : !isFolderItem(item)
 			);
 		}
 
-		filtered.sort((a, b) => {
-			const valueA = a[sortOptions.field] || '';
-			const valueB = b[sortOptions.field] || '';
+		const folderItems = items.filter(isFolderItem);
+		const fileItems = items
+			.filter((item) => !isFolderItem(item))
+			.sort((a, b) => {
+				const dateA = getDocumentTimelineDate(a)?.getTime() ?? 0;
+				const dateB = getDocumentTimelineDate(b)?.getTime() ?? 0;
+				return newestFirst ? dateB - dateA : dateA - dateB;
+			});
 
-			if (sortOptions.field === 'title') {
-				return sortOptions.direction === 'asc'
-					? valueA.localeCompare(valueB)
-					: valueB.localeCompare(valueA);
-			}
+		return { folders: folderItems, files: fileItems };
+	}, [currentItems, itemTypeFilter, newestFirst]);
 
-			const dateA = new Date(valueA).getTime();
-			const dateB = new Date(valueB).getTime();
-			return sortOptions.direction === 'asc' ? dateA - dateB : dateB - dateA;
-		});
+	/** Pasta de agrupamento (só editais/pastas) vs edital com documentos */
+	const isCollectionView =
+		folders.length > 0 && files.length === 0 && itemTypeFilter !== 'file';
 
-		return filtered.sort((a, b) => {
-			if (isFolderItem(a) && !isFolderItem(b)) return -1;
-			if (!isFolderItem(a) && isFolderItem(b)) return 1;
-			return 0;
-		});
-	}, [searchableItems, itemTypeFilter, sortOptions]);
+	const latestFile = newestFirst && files.length > 0 ? files[0] : null;
+	const showFeaturedLatest =
+		Boolean(latestFile) && itemTypeFilter !== 'folder';
+
+	const handleViewPdf = (url: string) => {
+		router.push(`/visualizar-pdf/${encodeURIComponent(url)}`);
+	};
 
 	const handleOpenItem = (item: EditalDocumentType) => {
 		if (isFolderItem(item)) {
 			navigateToFolder(item['@id'] || item.url, item.title);
 			return;
 		}
-
 		const fileUrl = item.url || item['@id'] || '';
 		if (isPdf(fileUrl) || isPdf(item['@id'] || '')) {
 			handleViewPdf(fileUrl);
 			return;
 		}
-
-		// Links e outros arquivos: abrir no destino
 		if (fileUrl) {
 			window.open(fileUrl, '_blank', 'noopener,noreferrer');
 		}
-	};
-
-	const toggleSort = (field: SortOptions['field']) => {
-		setSortOptions(prev => ({
-			field,
-			direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc',
-		}));
-	};
-
-	const handleViewPdf = (url: string) => {
-		const encodedUrl = encodeURIComponent(url);
-		router.push(`/visualizar-pdf/${encodedUrl}`);
 	};
 
 	const copyDownloadLink = (url: string) => {
 		navigator.clipboard.writeText(url).then(
 			() => {
 				toast({
-					title: "Link copiado!",
-					description: "O link para download foi copiado para a área de transferência.",
+					title: 'Link copiado',
+					description: 'O link do arquivo foi copiado. Você já pode compartilhar.',
 					duration: 3000,
 				});
 			},
 			() => {
 				toast({
-					title: "Erro ao copiar",
-					description: "Não foi possível copiar o link. Tente novamente.",
-					variant: "destructive",
+					title: 'Não foi possível copiar',
+					description: 'Tente novamente em instantes.',
+					variant: 'destructive',
 					duration: 3000,
 				});
 			}
 		);
 	};
 
-	const formatDate = (dateString: string | undefined) => {
-		if (!dateString) return '';
-		try {
-			return new Intl.DateTimeFormat('pt-BR', {
-				day: '2-digit',
-				month: '2-digit',
-				year: 'numeric',
-				hour: '2-digit',
-				minute: '2-digit',
-			}).format(new Date(dateString));
-		} catch (e) {
-			console.error("Error formatting date:", e);
-			return dateString;
-		}
-	};
-
-	if (isLoading) {
+	if (isLoading && !header) {
 		return (
-			<div className='w-full'>
+			<div className="w-full">
 				<EditalHeaderSkeleton />
 				<EditalFolderSkeleton />
 			</div>
 		);
 	}
 
+	const empty =
+		folders.length === 0 &&
+		files.length === 0 &&
+		itemTypeFilter !== 'folder';
+
+	const showFolderIcon = isCollectionView;
 	return (
-		<div className='w-full'>
-			<div className='mb-3 sm:mb-6'>
-				<div className='flex items-center gap-2'>
+		<div className="w-full space-y-5 sm:space-y-6">
+			{/* Cabeçalho + navegação */}
+			<div className="space-y-4">
+				{header && (
+					<div className="flex items-start gap-3 sm:gap-4">
+						<div className="mt-0.5 hidden h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-ufac-lightBlue sm:flex">
+							{showFolderIcon ? (
+								<Folder className="h-6 w-6 text-ufac-blue" />
+							) : (
+								<FileText className="h-6 w-6 text-ufac-blue" />
+							)}
+						</div>
+
+						<div className="min-w-0 flex-1">
+							<div className="mb-2 flex flex-wrap items-center gap-2">
+								<span className="inline-flex items-center rounded-full bg-ufac-blue/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-ufac-blue">
+									{showFolderIcon ? 'Pasta' : 'Edital oficial'}
+								</span>
+								<span className="text-xs text-slate-500 sm:text-sm">
+									{isCollectionView
+										? `${folders.length} ${folders.length === 1 ? 'item' : 'itens'} nesta pasta`
+										: 'Documentos públicos · leitura e download'}
+								</span>
+							</div>
+
+							<div className="flex items-start gap-2">
+								<h1 className="min-w-0 flex-1 text-lg font-semibold leading-snug tracking-tight text-slate-900 sm:text-2xl sm:font-bold">
+									{header.title}
+								</h1>
+								<FavoriteStarButton
+									idOrUrl={header.favoriteId}
+									title={header.title}
+									href={header.favoriteHref}
+									portalType={header.portalType}
+									className="shrink-0 border border-slate-200"
+								/>
+							</div>
+
+							{header.description && (
+								<p className="mt-2 text-sm leading-relaxed text-slate-600">
+									{header.description}
+								</p>
+							)}
+
+							{(header.publishedLabel || header.updatedLabel) && (
+								<div className="mt-3 flex flex-wrap gap-2">
+									{header.publishedLabel && (
+										<span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs text-slate-600 ring-1 ring-slate-200/80">
+											<CalendarDays className="h-3.5 w-3.5 text-ufac-blue" />
+											{header.publishedLabel}
+										</span>
+									)}
+									{header.updatedLabel && (
+										<span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs text-slate-600 ring-1 ring-slate-200/80">
+											<RefreshCw className="h-3.5 w-3.5 text-ufac-blue" />
+											{header.updatedLabel}
+										</span>
+									)}
+								</div>
+							)}
+						</div>
+					</div>
+				)}
+
+				{header?.htmlContent && (
+					<div
+						className="prose prose-sm max-w-none text-gray-700
+              prose-a:text-ufac-blue prose-a:underline
+              prose-headings:text-ufac-blue prose-li:my-1"
+						dangerouslySetInnerHTML={{ __html: header.htmlContent }}
+					/>
+				)}
+
+				<div className="flex items-center gap-2">
 					{currentFolder && (
 						<Button
-							variant='ghost'
-							size='sm'
+							variant="outline"
+							size="sm"
 							onClick={() => navigateUp()}
-							className='h-9 w-9 shrink-0 rounded-full p-0'
-							aria-label='Voltar pasta'
+							className="h-9 shrink-0 gap-1.5 rounded-full px-3"
+							aria-label="Voltar à pasta anterior"
 						>
-							<Undo className='h-4 w-4' />
+							<Undo2 className="h-4 w-4" />
+							<span className="hidden sm:inline">Voltar</span>
 						</Button>
 					)}
-
-					<div className='min-w-0 flex-grow overflow-hidden'>
+					<div className="min-w-0 flex-1 overflow-hidden">
 						<EditalBreadcrumb
 							breadcrumbItems={breadcrumbItems}
 							navigateUp={navigateUp}
@@ -253,406 +397,352 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 				</div>
 			</div>
 
-			<div
-				className={cn(
-					'mb-3 flex flex-col gap-2 sm:mb-5',
-					showTypeFilter && 'sm:flex-row sm:items-center sm:gap-4'
-				)}
-			>
-				<div className='flex-1'>
-					<Input
-						placeholder='Buscar...'
-						value={searchQuery}
-						onChange={(e) => setSearchQuery(e.target.value)}
-						className='h-10 w-full'
-					/>
-				</div>
+			{/* Conteúdo */}
+			<div className="space-y-5 sm:space-y-6">
 				{showTypeFilter && (
-					<div className='flex items-center gap-2 overflow-x-auto no-scrollbar'>
-						<span className='hidden shrink-0 text-sm text-gray-500 sm:inline'>
-							Filtrar por:
-						</span>
+					<div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
 						<Tabs
 							value={itemTypeFilter}
 							onValueChange={(v) =>
 								setItemTypeFilter(v as 'all' | 'folder' | 'file')
 							}
 						>
-							<TabsList className='h-auto gap-0.5 rounded-xl bg-white p-1'>
-								<TabsTrigger
-									value='all'
-									className='flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs data-[state=active]:bg-ufac-lightBlue data-[state=active]:text-ufac-blue sm:gap-1.5 sm:px-3 sm:text-sm'
-								>
-									<span>Todos</span>
-									<span
-										className={cn(
-											'inline-flex min-w-[1.15rem] items-center justify-center rounded-full px-1 py-0.5 text-[10px] font-semibold leading-none tabular-nums',
-											itemTypeFilter === 'all'
-												? 'bg-ufac-blue text-white'
-												: 'bg-slate-100 text-slate-600'
-										)}
+							<TabsList className="h-auto gap-0.5 rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200/80">
+								{(
+									[
+										{ value: 'all', label: 'Todos', count: typeCounts.all },
+										{
+											value: 'folder',
+											label: 'Pastas',
+											count: typeCounts.folder,
+											icon: Folder,
+										},
+										{
+											value: 'file',
+											label: 'Arquivos',
+											count: typeCounts.file,
+											icon: FileText,
+										},
+									] as const
+								).map((tab) => (
+									<TabsTrigger
+										key={tab.value}
+										value={tab.value}
+										className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs data-[state=active]:bg-ufac-lightBlue data-[state=active]:text-ufac-blue sm:gap-1.5 sm:px-3 sm:text-sm"
 									>
-										{typeCounts.all}
-									</span>
-								</TabsTrigger>
-								<TabsTrigger
-									value='folder'
-									className='flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs data-[state=active]:bg-ufac-lightBlue data-[state=active]:text-ufac-blue sm:gap-1.5 sm:px-3 sm:text-sm'
-								>
-									<Folder className='h-3.5 w-3.5' />
-									<span className='hidden sm:inline'>Pastas</span>
-									<span
-										className={cn(
-											'inline-flex min-w-[1.15rem] items-center justify-center rounded-full px-1 py-0.5 text-[10px] font-semibold leading-none tabular-nums',
-											itemTypeFilter === 'folder'
-												? 'bg-ufac-blue text-white'
-												: 'bg-slate-100 text-slate-600'
-										)}
-									>
-										{typeCounts.folder}
-									</span>
-								</TabsTrigger>
-								<TabsTrigger
-									value='file'
-									className='flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs data-[state=active]:bg-ufac-lightBlue data-[state=active]:text-ufac-blue sm:gap-1.5 sm:px-3 sm:text-sm'
-								>
-									<FileText className='h-3.5 w-3.5' />
-									<span className='hidden sm:inline'>Arquivos</span>
-									<span
-										className={cn(
-											'inline-flex min-w-[1.15rem] items-center justify-center rounded-full px-1 py-0.5 text-[10px] font-semibold leading-none tabular-nums',
-											itemTypeFilter === 'file'
-												? 'bg-ufac-blue text-white'
-												: 'bg-slate-100 text-slate-600'
-										)}
-									>
-										{typeCounts.file}
-									</span>
-								</TabsTrigger>
+										{'icon' in tab && tab.icon ? (
+											<tab.icon className="h-3.5 w-3.5" />
+										) : null}
+										<span
+											className={cn(
+												tab.value !== 'all' && 'hidden sm:inline'
+											)}
+										>
+											{tab.label}
+										</span>
+										<span
+											className={cn(
+												'inline-flex min-w-[1.15rem] items-center justify-center rounded-full px-1 py-0.5 text-[10px] font-semibold leading-none tabular-nums',
+												itemTypeFilter === tab.value
+													? 'bg-ufac-blue text-white'
+													: 'bg-slate-100 text-slate-600'
+											)}
+										>
+											{tab.count}
+										</span>
+									</TabsTrigger>
+								))}
 							</TabsList>
 						</Tabs>
 					</div>
 				)}
-			</div>
 
-			{isMobile ? (
-				<div className='divide-y divide-slate-100 overflow-hidden rounded-xl bg-white'>
-					{processedItems.length > 0 ? (
-						processedItems.map((item) => (
-							<motion.div
-								key={item.id}
-								variants={documentVariants}
-								initial='initial'
-								animate='animate'
-								exit='exit'
-								transition={{ duration: 0.15 }}
-							>
-								{isFolderItem(item) ? (
-									<button
-										type='button'
-										className='flex w-full items-center gap-3 px-3 py-3 text-left active:bg-slate-50'
-										onClick={() => handleOpenItem(item)}
-									>
-										<Folder className='h-5 w-5 shrink-0 text-ufac-blue' />
-										<div className='min-w-0 flex-1'>
-											<div className='truncate text-sm font-medium text-slate-800'>
-												{item.title}
-											</div>
-											<div className='truncate text-[11px] text-slate-500'>
-												{formatDate(item.modified)}
-											</div>
-										</div>
-										<ChevronRight className='h-4 w-4 shrink-0 text-slate-400' />
-									</button>
-								) : (
-									<div className='px-3 py-3'>
-										<button
-											type='button'
-											className='flex w-full items-center gap-3 text-left'
-											onClick={() => handleOpenItem(item)}
-										>
-											{(() => {
-												const kind = getFileKind(
-													item.title,
-													item.url,
-													item['@id']
-												);
-												return (
-													<div
-														className={cn(
-															'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
-															FILE_KIND_STYLES[kind].bgSoft
-														)}
-													>
-														<FileTypeIcon
-															kind={kind}
-															withBackground={false}
-															className='h-4 w-4'
-															size={16}
-														/>
-													</div>
-												);
-											})()}
-											<div className='min-w-0 flex-1'>
-												<div className='line-clamp-2 text-sm font-medium text-slate-800'>
-													{item.title}
-												</div>
-												<div className='mt-0.5 truncate text-[11px] text-slate-500'>
-													{[item.Creator || item.author, formatDate(item.modified)]
-														.filter(Boolean)
-														.join(' · ')}
-												</div>
-											</div>
-										</button>
-										<div className='mt-2 flex justify-end gap-1.5'>
-											{(isPdf(item.url || '') ||
-												isPdf(item['@id'] || '')) && (
-												<Button
-													size='sm'
-													variant='ghost'
-													className='h-8 px-2 text-xs'
-													onClick={(e) => {
-														e.stopPropagation();
-														handleViewPdf(item.url || item['@id'] || '');
-													}}
-												>
-													<Eye className='mr-1 h-3.5 w-3.5' />
-													Ver
-												</Button>
-											)}
-											<Button asChild size='sm' variant='ghost' className='h-8 px-2 text-xs'>
-												<a
-													href={item.url || item['@id']}
-													target='_blank'
-													rel='noreferrer'
-													onClick={(e) => e.stopPropagation()}
-												>
-													<Download className='mr-1 h-3.5 w-3.5' />
-													Baixar
-												</a>
-											</Button>
-										</div>
-									</div>
-								)}
-							</motion.div>
-						))
-					) : (
-						<div className='rounded-lg bg-slate-50 py-8 text-center text-sm text-slate-500'>
-							{searchQuery
-								? 'Nenhum documento encontrado para a busca.'
-								: 'Esta pasta está vazia.'}
+				{showFeaturedLatest && latestFile && (
+					<section className="overflow-hidden rounded-2xl border border-ufac-blue/20 bg-gradient-to-br from-ufac-lightBlue/80 via-white to-white p-4 shadow-sm sm:p-5">
+						<div className="mb-3 flex flex-wrap items-center gap-2">
+							<span className="inline-flex items-center gap-1.5 rounded-full bg-ufac-blue px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
+								<Sparkles className="h-3.5 w-3.5" />
+								Comece por aqui
+							</span>
+							<span className="text-xs text-slate-500 sm:text-sm">
+								Publicação mais recente deste edital
+							</span>
 						</div>
-					)}
-				</div>
-			) : (
-				<div className='bg-white rounded-xl shadow-sm overflow-hidden'>
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead 
-									className='w-[45%] pl-6 cursor-pointer'
-									onClick={() => toggleSort('title')}
-								>
-									<div className='flex items-center gap-1'>
-										Nome
-										{sortOptions.field === 'title' && (
-											<Badge variant='outline' className='ml-1'>
-												{sortOptions.direction === 'asc' ? '↑' : '↓'}
-											</Badge>
-										)}
-									</div>
-								</TableHead>
-								<TableHead 
-									className='w-[15%] cursor-pointer'
-									onClick={() => toggleSort('Creator')}
-								>
-									<div className='flex items-center gap-1'>
-										Autor
-										{sortOptions.field === 'Creator' && (
-											<Badge variant='outline' className='ml-1'>
-												{sortOptions.direction === 'asc' ? '↑' : '↓'}
-											</Badge>
-										)}
-									</div>
-								</TableHead>
-								<TableHead 
-									className='w-[20%] cursor-pointer'
-									onClick={() => toggleSort('created')}
-								>
-									<div className='flex items-center gap-1'>
-										Data de Criação
-										{sortOptions.field === 'created' && (
-											<Badge variant='outline' className='ml-1'>
-												{sortOptions.direction === 'asc' ? '↑' : '↓'}
-											</Badge>
-										)}
-									</div>
-								</TableHead>
-								<TableHead 
-									className='w-[20%] cursor-pointer'
-									onClick={() => toggleSort('modified')}
-								>
-									<div className='flex items-center gap-1'>
-										Última modificação
-										{sortOptions.field === 'modified' && (
-											<Badge variant='outline' className='ml-1'>
-												{sortOptions.direction === 'asc' ? '↑' : '↓'}
-											</Badge>
-										)}
-									</div>
-								</TableHead>
-								<TableHead className='w-[10%] text-right pr-6'>Ações</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{processedItems.length > 0 ? (
-								processedItems.map((item, index) => {
-									const folder = isFolderItem(item);
-									const fileUrl = item.url || item['@id'] || '';
-									const canPreview = !folder && (isPdf(fileUrl) || isPdf(item['@id'] || ''));
-									const fileKind = folder
-										? null
-										: getFileKind(item.title, item.url, item['@id']);
 
-									return (
-									<TableRow
-										key={item.id + index.toString()}
-										className={cn(
-											'hover:bg-gray-50',
-											(folder || canPreview) && 'cursor-pointer'
+						<div
+							className={cn(
+								'flex gap-4',
+								isMobile ? 'flex-col' : 'items-start justify-between'
+							)}
+						>
+							<button
+								type="button"
+								className="flex min-w-0 flex-1 items-start gap-3 text-left"
+								onClick={() => handleOpenItem(latestFile)}
+							>
+								<span
+									className={cn(
+										'mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl',
+										FILE_KIND_STYLES[
+											getFileKind(
+												latestFile.title,
+												latestFile.url,
+												latestFile['@id']
+											)
+										].bgSoft
+									)}
+								>
+									<FileTypeIcon
+										kind={getFileKind(
+											latestFile.title,
+											latestFile.url,
+											latestFile['@id']
 										)}
-										onClick={() => {
-											if (folder || canPreview) {
-												handleOpenItem(item);
-											}
-										}}>
-										<TableCell className='pl-6 py-4 font-medium'>
-											<div className={cn(
-												'flex items-center',
-												folder ? 'text-blue-500' : ''
-											)}>
+										withBackground={false}
+										className="h-6 w-6"
+										size={24}
+									/>
+								</span>
+								<span className="min-w-0 flex-1">
+									{(() => {
+										const d = getDocumentTimelineDate(latestFile);
+										const dateLabel = formatTimelineDateLabel(d);
+										const timeLabel = formatTimelineTimeLabel(d);
+										return dateLabel ? (
+											<span className="mb-1 block text-xs text-slate-500">
+												{dateLabel}
+												{timeLabel ? ` · ${timeLabel}` : ''}
+											</span>
+										) : null;
+									})()}
+									<span className="line-clamp-3 text-base font-semibold leading-snug text-slate-900 sm:text-lg">
+										{latestFile.title}
+									</span>
+									{latestFile.description ? (
+										<span className="mt-1 line-clamp-2 block text-sm text-slate-500">
+											{latestFile.description}
+										</span>
+									) : (
+										<span className="mt-1 block text-sm text-slate-500">
+											Abra para ler online ou baixe o arquivo oficial.
+										</span>
+									)}
+								</span>
+							</button>
+
+							<DocumentActions
+								item={latestFile}
+								isMobile={isMobile}
+								emphasized
+								onView={handleViewPdf}
+								onCopy={copyDownloadLink}
+							/>
+						</div>
+					</section>
+				)}
+
+				{folders.length > 0 && itemTypeFilter !== 'file' && (
+					<section>
+						{!isCollectionView && (
+							<div className="mb-3">
+								<h2 className="text-sm font-semibold text-slate-800 sm:text-base">
+									Pastas
+								</h2>
+								<p className="text-xs text-slate-500 sm:text-sm">
+									Documentos agrupados neste edital
+								</p>
+							</div>
+						)}
+						<div className="grid gap-2 sm:grid-cols-2">
+							{folders.map((item) => (
+								<button
+									key={item.id}
+									type="button"
+									onClick={() => handleOpenItem(item)}
+									className="group flex items-center gap-3 rounded-2xl border border-slate-100 bg-white px-3 py-3.5 text-left shadow-sm transition hover:border-ufac-blue/30 hover:bg-ufac-lightBlue/50 hover:shadow-md"
+								>
+									<span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-ufac-lightBlue text-ufac-blue transition group-hover:bg-white">
+										<Folder className="h-5 w-5" />
+									</span>
+									<span className="min-w-0 flex-1">
+										<span className="line-clamp-2 text-sm font-medium text-slate-800">
+											{item.title}
+										</span>
+										<span className="mt-0.5 block text-xs text-slate-400">
+											Abrir
+										</span>
+									</span>
+									<ChevronRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-ufac-blue" />
+								</button>
+							))}
+						</div>
+					</section>
+				)}
+
+				{itemTypeFilter !== 'folder' &&
+					!(showFeaturedLatest && files.length <= 1) && (
+						<section>
+							<div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+								<div>
+									<h2 className="text-sm font-semibold text-slate-800 sm:text-base">
+										{showFeaturedLatest
+											? 'Publicações anteriores'
+											: 'Histórico de publicações'}
+									</h2>
+									<p className="text-xs text-slate-500 sm:text-sm">
+										{showFeaturedLatest
+											? 'Demais documentos oficiais deste edital'
+											: 'Linha do tempo — do mais recente ao mais antigo'}
+									</p>
+								</div>
+								{files.length > 1 && (
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										className="h-9 gap-1.5 rounded-full text-xs text-slate-600"
+										onClick={() => setNewestFirst((v) => !v)}
+									>
+										<ArrowUpDown className="h-3.5 w-3.5" />
+										{newestFirst
+											? 'Mais recentes primeiro'
+											: 'Mais antigos primeiro'}
+									</Button>
+								)}
+							</div>
+
+							{files.length === 0 ? (
+								empty ? (
+									<div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-12 text-center">
+										<FileText className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+										<p className="text-sm font-medium text-slate-700">
+											Ainda não há arquivos neste local
+										</p>
+									</div>
+								) : null
+							) : (
+								<ol className="relative space-y-0 border-l-2 border-ufac-lightBlue pl-0 sm:ml-1">
+									{files.map((item, index) => {
+										const kind = getFileKind(
+											item.title,
+											item.url,
+											item['@id']
+										);
+										const timelineDate = getDocumentTimelineDate(item);
+										const dateLabel = formatTimelineDateLabel(timelineDate);
+										const timeLabel = formatTimelineTimeLabel(timelineDate);
+										const isLatest = newestFirst && index === 0;
+										const hideDuplicate = showFeaturedLatest && isLatest;
+
+										if (hideDuplicate) return null;
+
+										return (
+											<li
+												key={item.id}
+												className="relative pb-5 last:pb-0 pl-6 sm:pl-8"
+											>
 												<span
 													className={cn(
-														'mr-3 flex justify-center items-center min-w-10 min-h-10 rounded-full',
-														folder
-															? 'bg-ufac-lightBlue'
-															: FILE_KIND_STYLES[fileKind!].bgSoft
-													)}>
-														{folder ? (
-															<Folder className='min-h-5 max-h-5 min-w-5 max-w-5' />
-														) : (
-															<FileTypeIcon
-																kind={fileKind!}
-																withBackground={false}
-																className='min-h-5 max-h-5 min-w-5 max-w-5'
-																size={20}
-															/>
-														)}
-												</span>
-												<button
-													type='button'
-													className={cn(
-														'text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ufac-blue rounded-sm',
-														folder ? 'text-blue-600' : 'text-slate-800 hover:text-ufac-blue'
+														'absolute -left-[7px] top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-white sm:-left-[9px] sm:h-4 sm:w-4',
+														isLatest
+															? 'bg-ufac-blue ring-4 ring-ufac-lightBlue'
+															: 'bg-slate-300'
 													)}
-													onClick={(e) => {
-														e.stopPropagation();
-														handleOpenItem(item);
+													aria-hidden
+												/>
+												<motion.article
+													initial={{ opacity: 0, y: 8 }}
+													animate={{ opacity: 1, y: 0 }}
+													transition={{
+														duration: 0.2,
+														delay: Math.min(index * 0.03, 0.2),
 													}}
-												>
-													{item.title}
-												</button>
-												{folder && (
-													<ChevronRight className='min-h-4 min-w-4 text-gray-400 ml-2' />
-												)}
-											</div>
-										</TableCell>
-										<TableCell>
-											{
-												<span className='flex gap-2 items-center'>
-													<UserCircle className='h-4 w-4' />
-													<span>{item.Creator || item.author}</span>
-												</span>
-											}
-										</TableCell>
-										<TableCell>
-											{formatDate(item.created)}
-										</TableCell>
-										<TableCell>
-											{formatDate(item.modified)}
-										</TableCell>
-										<TableCell className='text-right pr-6'>
-											{!folder && (
-												<div className='flex justify-end gap-2'>
-													{canPreview && (
-														<Button
-															variant='outline'
-															size='sm'
-															onClick={(e) => {
-																e.stopPropagation();
-																handleViewPdf(fileUrl);
-															}}
-															key={`view-${item.id}`}
-															title='Visualizar PDF'>
-															<Eye className='h-4 w-4' />
-														</Button>
+													className={cn(
+														'rounded-2xl border bg-white p-3 shadow-sm sm:p-4',
+														isLatest
+															? 'border-ufac-blue/25 shadow-md shadow-ufac-blue/5'
+															: 'border-slate-100'
 													)}
-													<Button
-														variant='outline'
-														size='sm'
-														onClick={(e) => {
-															e.stopPropagation();
-															copyDownloadLink(fileUrl);
-														}}
-														key={`copy-${item.id}`}
-														title='Copiar link'>
-														<svg 
-															xmlns="http://www.w3.org/2000/svg" 
-															width="16" 
-															height="16" 
-															viewBox="0 0 24 24"
-															fill="none"
-															stroke="currentColor"
-															strokeWidth="2"
-															strokeLinecap="round"
-															strokeLinejoin="round">
-															<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-															<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-														</svg>
-													</Button>
-													<Button
-														variant='ghost'
-														size='sm'
-														asChild
-														key={`download-${item.id}`}
-														title='Baixar arquivo'>
-														<a
-															href={fileUrl}
-															target='_blank'
-															rel='noreferrer'
-															onClick={(e) => e.stopPropagation()}>
-															<Download className='h-4 w-4' />
-														</a>
-													</Button>
-												</div>
-											)}
-										</TableCell>
-									</TableRow>
-									);
-								})
-							) : (
-								<TableRow>
-									<TableCell
-										colSpan={5}
-										className='text-center py-8 text-gray-500'>
-										{searchQuery ? 'Nenhum documento encontrado para a busca.' : 'Esta pasta está vazia.'}
-									</TableCell>
-								</TableRow>
+												>
+													<div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+														{dateLabel ? (
+															<time
+																dateTime={
+																	item.created || item.modified || undefined
+																}
+															>
+																{dateLabel}
+																{timeLabel ? ` · ${timeLabel}` : ''}
+															</time>
+														) : null}
+														{isLatest && (
+															<span className="rounded-full bg-ufac-lightBlue px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ufac-blue">
+																Mais recente
+															</span>
+														)}
+													</div>
+
+													<div
+														className={cn(
+															'mt-2 flex gap-3',
+															isMobile ? 'flex-col' : 'items-start'
+														)}
+													>
+														<button
+															type="button"
+															className="flex min-w-0 flex-1 items-start gap-3 text-left"
+															onClick={() => handleOpenItem(item)}
+														>
+															<span
+																className={cn(
+																	'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+																	FILE_KIND_STYLES[kind].bgSoft
+																)}
+															>
+																<FileTypeIcon
+																	kind={kind}
+																	withBackground={false}
+																	className="h-5 w-5"
+																	size={20}
+																/>
+															</span>
+															<span className="min-w-0 flex-1">
+																<span className="line-clamp-3 text-sm font-semibold leading-snug text-slate-900 sm:text-base">
+																	{item.title}
+																</span>
+																{item.description ? (
+																	<span className="mt-1 line-clamp-2 block text-xs text-slate-500">
+																		{item.description}
+																	</span>
+																) : null}
+															</span>
+														</button>
+
+														<DocumentActions
+															item={item}
+															isMobile={isMobile}
+															onView={handleViewPdf}
+															onCopy={copyDownloadLink}
+														/>
+													</div>
+												</motion.article>
+											</li>
+										);
+									})}
+								</ol>
 							)}
-						</TableBody>
-					</Table>
-				</div>
-			)}
+						</section>
+					)}
+
+				{itemTypeFilter === 'folder' && folders.length === 0 && (
+					<div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-12 text-center">
+						<Folder className="mx-auto mb-3 h-8 w-8 text-slate-300" />
+						<p className="text-sm font-medium text-slate-700">
+							Nenhuma pasta neste local
+						</p>
+					</div>
+				)}
+			</div>
 		</div>
 	);
 };

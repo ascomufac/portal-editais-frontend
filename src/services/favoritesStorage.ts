@@ -1,4 +1,4 @@
-import { toEditalHref, toSitePath } from '@/services/editalService';
+import { toEditalHref, toSetorHref, toSitePath } from '@/services/editalService';
 
 export type FavoriteItem = {
   path: string;
@@ -27,6 +27,38 @@ export const favoritesStorageKey = (username?: string | null): string =>
 const canUseStorage = (): boolean =>
   typeof window !== 'undefined' && typeof localStorage !== 'undefined';
 
+export const normalizeFavoritePath = (idOrUrl: string): string =>
+  toSitePath(idOrUrl).replace(/\/+$/, '');
+
+/** Rota interna do portal a partir do path Plone (nunca URL www3). */
+export const toFavoriteHref = (pathOrUrl: string): string => {
+  const path = normalizeFavoritePath(pathOrUrl);
+  if (!path) return '/';
+  const segments = path.split('/').filter(Boolean);
+  if (segments.length <= 1) return toSetorHref(segments[0] || path);
+  return toEditalHref(path);
+};
+
+const isInternalPortalHref = (href: string): boolean =>
+  href.startsWith('/edital/') ||
+  href.startsWith('/setor/') ||
+  href === '/' ||
+  href.startsWith('/favoritos');
+
+const normalizeFavoriteItem = (item: FavoriteItem): FavoriteItem => {
+  const path = normalizeFavoritePath(item.path || item.href || '');
+  const href =
+    item.href && isInternalPortalHref(item.href)
+      ? item.href
+      : toFavoriteHref(path || item.href || '');
+
+  return {
+    ...item,
+    path: path || item.path,
+    href,
+  };
+};
+
 const readRaw = (key: string): FavoriteItem[] => {
   if (!canUseStorage()) return [];
   try {
@@ -34,10 +66,14 @@ const readRaw = (key: string): FavoriteItem[] => {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (item): item is FavoriteItem =>
-        Boolean(item && typeof item.path === 'string' && typeof item.title === 'string')
-    );
+    return parsed
+      .filter(
+        (item): item is FavoriteItem =>
+          Boolean(
+            item && typeof item.path === 'string' && typeof item.title === 'string'
+          )
+      )
+      .map(normalizeFavoriteItem);
   } catch {
     return [];
   }
@@ -50,9 +86,6 @@ const writeRaw = (key: string, items: FavoriteItem[]) => {
     new CustomEvent(EVENT_NAME, { detail: { key } })
   );
 };
-
-export const normalizeFavoritePath = (idOrUrl: string): string =>
-  toSitePath(idOrUrl).replace(/\/+$/, '');
 
 export const listFavorites = (username?: string | null): FavoriteItem[] => {
   const items = readRaw(favoritesStorageKey(username));
@@ -74,7 +107,7 @@ export const toggleFavorite = (
   input: FavoriteInput,
   username?: string | null
 ): { added: boolean; items: FavoriteItem[] } => {
-  const path = normalizeFavoritePath(input.idOrUrl);
+  const path = normalizeFavoritePath(input.idOrUrl || input.href || '');
   if (!path) {
     return { added: false, items: listFavorites(username) };
   }
@@ -95,7 +128,8 @@ export const toggleFavorite = (
     const item: FavoriteItem = {
       path,
       title: input.title || 'Sem título',
-      href: input.href || toEditalHref(path),
+      // Sempre rota interna — ignora href externo do Plone
+      href: toFavoriteHref(path),
       '@type': input['@type'],
       setorId,
       savedAt: new Date().toISOString(),

@@ -57,10 +57,10 @@ const FavoritesPage: React.FC = () => {
                 key={item.path}
                 title={item.title}
                 description=""
-                href={item.href}
+                href={item.href.startsWith('/') ? item.href : `/edital/${item.path}`}
                 compact
                 icon={
-                  item['@type'] === 'Folder' ? (
+                  item['@type'] === 'Folder' || item['@type'] === 'Collection' ? (
                     <Folder
                       strokeWidth={1.5}
                       className="h-5 w-5 text-ufac-blue"
@@ -73,7 +73,9 @@ const FavoritesPage: React.FC = () => {
                   )
                 }
                 color={
-                  item['@type'] === 'Folder' ? 'bg-blue-50' : 'bg-red-50'
+                  item['@type'] === 'Folder' || item['@type'] === 'Collection'
+                    ? 'bg-blue-50'
+                    : 'bg-red-50'
                 }
                 state={
                   {
