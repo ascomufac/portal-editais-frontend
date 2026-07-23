@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMenuItems } from '@/hooks/useMenuItems';
 import { cn } from '@/lib/utils';
 import { MenuItem } from '@/services/editalService';
-import { ChevronDown, Star } from 'lucide-react';
+import { ChevronDown, Folder, FolderOpen, Star } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -15,6 +15,12 @@ interface SidebarContentProps {
   closeSidebar: () => void;
   isCollapsed?: boolean;
 }
+
+const isFolderItem = (item: MenuItem) =>
+  Boolean(item.isGroup) ||
+  Boolean(item.children?.length) ||
+  item['@type'] === 'Folder' ||
+  item['@type'] === 'Collection';
 
 const SidebarContent: React.FC<SidebarContentProps> = ({
   closeSidebar,
@@ -72,6 +78,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
 
   const renderNavLink = (item: MenuItem, depth: number) => {
     const style = depth > 0 ? { paddingLeft: `${0.75 + depth * 0.65}rem` } : undefined;
+    const showFolder = isFolderItem(item);
 
     if (item.href.startsWith('http')) {
       return (
@@ -84,11 +91,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
           title={item.title}
           style={style}
           className={cn(
-            'block rounded-md py-1.5 pr-3 text-sm text-gray-600 hover:bg-gray-100 hover:text-ufac-blue',
+            'flex items-start gap-1.5 rounded-md py-1.5 pr-3 text-sm text-gray-600 hover:bg-gray-100 hover:text-ufac-blue',
             depth === 0 && 'px-3 py-2 text-gray-700'
           )}
         >
-          <span className="line-clamp-2">{item.title}</span>
+          {showFolder && (
+            <Folder className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+          )}
+          <span className="min-w-0 flex-1 line-clamp-2">{item.title}</span>
         </a>
       );
     }
@@ -101,7 +111,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
         title={item.title}
         style={style}
         className={cn(
-          'block rounded-md py-1.5 pr-3 text-sm transition-colors',
+          'flex items-start gap-1.5 rounded-md py-1.5 pr-3 text-sm transition-colors',
           depth === 0 && 'px-3 py-2',
           isItemActive(item)
             ? 'bg-ufac-lightBlue font-medium text-ufac-blue'
@@ -109,7 +119,16 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
           depth > 0 && 'ml-2 border-l border-slate-200'
         )}
       >
-        <span className="line-clamp-2">{item.title}</span>
+        {showFolder && (
+          <Folder
+            className={cn(
+              'mt-0.5 h-3.5 w-3.5 shrink-0',
+              isItemActive(item) ? 'text-ufac-blue' : 'text-slate-400'
+            )}
+            aria-hidden
+          />
+        )}
+        <span className="min-w-0 flex-1 line-clamp-2">{item.title}</span>
       </Link>
     );
   };
@@ -149,6 +168,12 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
               )}
             />
           </button>
+
+          {open ? (
+            <FolderOpen className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+          ) : (
+            <Folder className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+          )}
 
           {item.isGroup || !item.href || item.href === '#' ? (
             <button

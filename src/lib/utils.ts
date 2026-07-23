@@ -31,6 +31,11 @@ export function formatDate(date: string | Date): string {
       console.warn('Invalid date value:', date);
       return typeof date === 'string' ? date : '';
     }
+
+    // Plone às vezes serializa datas “vazias” como epoch (~1969)
+    if (dateObj.getUTCFullYear() < 1990) {
+      return '';
+    }
     
     return dateObj.toLocaleDateString('pt-BR', {
       day: '2-digit',

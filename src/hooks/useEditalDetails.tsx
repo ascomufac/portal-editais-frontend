@@ -7,7 +7,7 @@ import {
   toEditalHref,
   toSitePath,
 } from '@/services/editalService';
-import { FileText } from 'lucide-react';
+import { FileText, Folder } from 'lucide-react';
 import { createElement, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -62,14 +62,14 @@ export function useEditalDetails(editalId: string | undefined) {
       const searchParams = new URLSearchParams();
       searchParams.append('b_start', '0');
       searchParams.append('b_size', '100');
-      searchParams.append('sort_on', 'modified');
+      searchParams.append('sort_on', 'created');
       searchParams.append('sort_order', 'descending');
+      searchParams.append('metadata_fields:list', 'created');
+      searchParams.append('metadata_fields:list', 'modified');
+      searchParams.append('metadata_fields:list', 'Creator');
+      searchParams.append('metadata_fields:list', 'items_total');
       searchParams.append('metadata_fields:list', 'item_count');
-      searchParams.append('metadata_fields', 'created');
-      searchParams.append('metadata_fields', 'modified');
-      searchParams.append('metadata_fields', 'Creator');
-      searchParams.append('metadata_fields', 'effective');
-      searchParams.append('metadata_fields', 'items_total');
+      // Não pedir `effective`: no Plone costuma vir 1969-12-31 quando não preenchido.
 
       const normalizedEditalId = toSitePath(_editalId);
       const endpoint = `/${normalizedEditalId}?${searchParams.toString()}`;
@@ -92,6 +92,16 @@ export function useEditalDetails(editalId: string | undefined) {
         return;
       }
 
+      const sanitizeDate = (value: unknown): string => {
+        if (value == null || value === '' || value === 'None') return '';
+        const raw = String(value);
+        const time = Date.parse(raw);
+        if (!Number.isFinite(time)) return '';
+        // Plone usa ~1969-12-31 quando "Data de publicação" (effective) não foi definida
+        if (new Date(time).getUTCFullYear() < 1990) return '';
+        return raw;
+      };
+
       const rawHtml =
         typeof data.text === 'object' && data.text?.data
           ? String(data.text.data)
@@ -99,15 +109,22 @@ export function useEditalDetails(editalId: string | undefined) {
             ? data.text
             : '';
 
+      const isFolder =
+        data['@type'] === 'Folder' ||
+        data['@type'] === 'Collection' ||
+        Boolean(data.is_folderish);
+
       setEdital({
         id: data.id || data.UID || '',
         title: data.title || '',
         description: data.description || '',
         color: 'bg-blue-50',
-        icon: createElement(FileText, { className: 'h-8 w-8 text-blue-600' }),
+        icon: createElement(isFolder ? Folder : FileText, {
+          className: 'h-8 w-8 text-ufac-blue',
+        }),
         href: data['@id'] || '',
-        modified: data.modified || '',
-        effective: data.effective || '',
+        modified: sanitizeDate(data.modified),
+        effective: sanitizeDate(data.effective),
         author: data.Creator || data.creators?.[0] || '',
         section: pathname.split('/')[1] || '',
         '@type': data['@type'],
@@ -127,10 +144,10 @@ export function useEditalDetails(editalId: string | undefined) {
             author: String(item.Creator || item.author || ''),
             Creator: String(item.Creator || item.author || ''),
             type: String(item['@type'] || 'Document'),
-            lastModified: String(item.modified || ''),
-            modified: String(item.modified || ''),
-            created: String(item.created || ''),
-            effective: String(item.effective || ''),
+            lastModified: sanitizeDate(item.modified),
+            modified: sanitizeDate(item.modified),
+            created: sanitizeDate(item.created),
+            effective: '',
             url: String(item['@id'] || ''),
             isFolder:
               item['@type'] === 'Folder' ||
