@@ -1,7 +1,7 @@
 
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, type Variants } from 'framer-motion';
 import { PanelLeftOpen, PanelRightOpen } from 'lucide-react';
 import React from 'react';
 import SidebarContent from './sidebar/SidebarContent';
@@ -21,7 +21,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed, 
   toggleCollapsed 
 }) => {
-  const sidebarVariants = {
+  const sidebarVariants: Variants = {
     open: { x: 0, transition: { type: 'spring', stiffness: 300, damping: 30 } },
     closed: { x: '-100%', transition: { type: 'spring', stiffness: 300, damping: 30 } },
   };

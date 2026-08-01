@@ -1,7 +1,7 @@
 
 import { cn } from '@/lib/utils';
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 
 interface AnimatedLogoIconProps {
   className?: string;
@@ -25,7 +25,7 @@ const AnimatedLogoIcon: React.FC<AnimatedLogoIconProps> = ({
   }, [animate]);
   
   // Adjusted animation variants to make them more consistent with loading animation
-  const topLeftVariants = {
+  const topLeftVariants: Variants = {
     initial: { y: 0, opacity: 1, fill: "#294DEF" },
     animate: { 
       y: [-5, 0], 
@@ -38,7 +38,7 @@ const AnimatedLogoIcon: React.FC<AnimatedLogoIconProps> = ({
     }
   };
   
-  const topRightVariants = {
+  const topRightVariants: Variants = {
     initial: { y: 0, opacity: 1, fill: "#FFD129" },
     animate: { 
       y: [-8, 0], 
@@ -51,7 +51,7 @@ const AnimatedLogoIcon: React.FC<AnimatedLogoIconProps> = ({
     }
   };
   
-  const bottomLeftVariants = {
+  const bottomLeftVariants: Variants = {
     initial: { y: 0, opacity: 1, fill: "#294DEF" },
     animate: { 
       y: [-6, 0], 
@@ -64,7 +64,7 @@ const AnimatedLogoIcon: React.FC<AnimatedLogoIconProps> = ({
     }
   };
   
-  const bottomRightVariants = {
+  const bottomRightVariants: Variants = {
     initial: { y: 0, opacity: 1, fill: "#FFD129" },
     animate: { 
       y: [-7, 0], 
