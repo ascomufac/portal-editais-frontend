@@ -4,8 +4,10 @@ import FavoriteStarButton from '@/components/FavoriteStarButton';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { adminContentHref } from '@/services/ploneContentService';
 import { isPdf } from '@/services/search/utils';
 import { EditalDocumentType } from '@/types/edital';
 import { motion } from 'framer-motion';
@@ -21,8 +23,10 @@ import {
 	RefreshCw,
 	Sparkles,
 	Undo2,
+	Upload,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import FileTypeIcon, {
 	FILE_KIND_STYLES,
@@ -196,7 +200,14 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 	const isMobile = useIsMobile();
 	const router = useRouter();
 	const { toast } = useToast();
+	const { isAuthenticated } = useAuth();
 	const currentItems = getCurrentFolderContents();
+
+	const adminUploadHref = useMemo(() => {
+		const fromBreadcrumb = breadcrumbItems[breadcrumbItems.length - 1]?.id;
+		const raw = currentFolder || fromBreadcrumb || header?.favoriteId || '';
+		return adminContentHref(raw);
+	}, [breadcrumbItems, currentFolder, header?.favoriteId]);
 
 	const [itemTypeFilter, setItemTypeFilter] = useState<'all' | 'folder' | 'file'>(
 		'all'
@@ -613,11 +624,33 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 
 							{files.length === 0 ? (
 								empty ? (
-									<div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-12 text-center">
-										<FileText className="mx-auto mb-3 h-8 w-8 text-slate-300" />
-										<p className="text-sm font-medium text-slate-700">
+									<div className="rounded-2xl border border-dashed border-ufac-blue/25 bg-ufac-lightBlue/30 px-4 py-12 text-center">
+										<div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-ufac-blue shadow-sm ring-1 ring-ufac-blue/10">
+											<Upload className="h-5 w-5" />
+										</div>
+										<p className="text-sm font-medium text-slate-800">
 											Ainda não há arquivos neste local
 										</p>
+										<p className="mx-auto mt-1 max-w-sm text-xs text-slate-500 sm:text-sm">
+											Envie o primeiro arquivo para disponibilizar documentos
+											nesta linha do tempo.
+										</p>
+										{isAuthenticated ? (
+											<Button
+												asChild
+												className="mt-5 gap-1.5 rounded-full bg-ufac-blue hover:bg-ufac-blue/90"
+											>
+												<Link href={adminUploadHref}>
+													<Upload className="h-4 w-4" />
+													Enviar arquivo
+												</Link>
+											</Button>
+										) : (
+											<p className="mt-4 text-xs text-slate-400">
+												Quando a equipe publicar arquivos, eles aparecerão
+												aqui.
+											</p>
+										)}
 									</div>
 								) : null
 							) : (

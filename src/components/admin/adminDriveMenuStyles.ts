@@ -1,6 +1,6 @@
 /** Estilo dos menus admin (clique direito / ⋮ / Novo) — tema claro. */
 export const adminDriveMenuContentClass =
-  'z-50 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 text-slate-800 shadow-lg shadow-slate-300/40';
+  'z-50 w-56 max-h-[min(70vh,var(--radix-dropdown-menu-content-available-height,70vh),var(--radix-context-menu-content-available-height,70vh))] overflow-y-auto overflow-x-hidden overscroll-contain rounded-2xl border border-slate-200 bg-white p-1.5 text-slate-800 shadow-lg shadow-slate-300/40';
 
 export const adminDriveMenuItemClass =
   'cursor-pointer rounded-lg px-2.5 py-2 text-sm text-slate-700 outline-none focus:bg-slate-100 focus:text-slate-900 data-[highlighted]:bg-slate-100 data-[highlighted]:text-slate-900';

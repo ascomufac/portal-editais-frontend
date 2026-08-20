@@ -1025,6 +1025,7 @@ const ContentBrowser: React.FC = () => {
       <DropdownMenuContent
         align="end"
         sideOffset={6}
+        collisionPadding={12}
         className={adminDriveMenuContentClass}
         onClick={(e) => e.stopPropagation()}
       >
@@ -1054,7 +1055,10 @@ const ContentBrowser: React.FC = () => {
         <ContextMenuTrigger asChild>{main}</ContextMenuTrigger>
         {itemActions(item)}
       </div>
-      <ContextMenuContent className={adminDriveMenuContentClass}>
+      <ContextMenuContent
+        collisionPadding={12}
+        className={adminDriveMenuContentClass}
+      >
         {itemMenuItems(item, ContextMenuItem, ContextMenuSeparator)}
       </ContextMenuContent>
     </ContextMenu>
@@ -1442,9 +1446,13 @@ const ContentBrowser: React.FC = () => {
           </Button>
         </div>
       ) : filteredItems.length === 0 && !loadingMore ? (
-        <div className="rounded-3xl border border-dashed border-slate-200 px-6 py-20 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50">
-            <Folder className="h-8 w-8 fill-amber-400/80 text-amber-500" />
+        <div className="rounded-3xl border border-dashed border-ufac-blue/25 bg-ufac-lightBlue/20 px-6 py-20 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-ufac-blue/10">
+            {query || typeFilter !== 'all' || stateFilter !== 'all' ? (
+              <Folder className="h-8 w-8 fill-amber-400/80 text-amber-500" />
+            ) : (
+              <Upload className="h-8 w-8 text-ufac-blue" />
+            )}
           </div>
           <h2 className="mt-5 text-xl font-normal text-slate-900">
             {query || typeFilter !== 'all' || stateFilter !== 'all'
@@ -1454,8 +1462,20 @@ const ContentBrowser: React.FC = () => {
           <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
             {stateFilter !== 'all'
               ? 'Tente outro filtro de visibilidade ou limpe o filtro “Visibilidade”.'
-              : 'Use o botão Novo na barra lateral para criar pastas ou enviar arquivos.'}
+              : query || typeFilter !== 'all'
+                ? 'Ajuste a busca ou os filtros para encontrar o que precisa.'
+                : 'Envie o primeiro arquivo ou crie uma pasta para começar.'}
           </p>
+          {!query && typeFilter === 'all' && stateFilter === 'all' && canUpload && (
+            <Button
+              type="button"
+              className="mt-6 gap-1.5 rounded-full bg-ufac-blue hover:bg-ufac-blue/90"
+              onClick={() => setUploadOpen(true)}
+            >
+              <Upload className="h-4 w-4" />
+              Enviar arquivo
+            </Button>
+          )}
         </div>
       ) : viewMode === 'grid' ? (
         <div className="w-full space-y-2">

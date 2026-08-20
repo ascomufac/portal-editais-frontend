@@ -48,3 +48,4 @@ Thumbs.db
 *.pem
 .turbo/
 .cache/
+.vercel
