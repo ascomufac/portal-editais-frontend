@@ -1,4 +1,5 @@
 import RequireAuth from '@/components/auth/RequireAuth';
+import AppVersion from '@/components/AppVersion';
 import AdminFolderTree from '@/components/admin/AdminFolderTree';
 import AdminScrollToTop from '@/components/admin/AdminScrollToTop';
 import AdminSearchBar from '@/components/admin/AdminSearchBar';
@@ -413,9 +414,10 @@ const AdminLayout: React.FC = () => {
             </div>
           </nav>
 
-          <div className="mt-auto hidden shrink-0 px-4 py-3 text-xs text-slate-500 sm:block">
-            <p className="font-medium text-slate-700">{displayName}</p>
-            <p className="truncate">@{user?.username}</p>
+          <div className="mt-auto hidden shrink-0 space-y-1 px-4 py-3 sm:block">
+            <p className="text-xs font-medium text-slate-700">{displayName}</p>
+            <p className="truncate text-xs text-slate-500">@{user?.username}</p>
+            <AppVersion className="-ml-1.5 mt-1" />
           </div>
 
           {/* Divisor arrastável (desktop) */}

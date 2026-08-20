@@ -1,0 +1,13 @@
+#!/bin/sh
+# Bump semver (tag + package.json) após commit em main.
+# Desative com: SKIP_VERSION_BUMP=1 git commit ...
+# Ou inclua [skip version] na mensagem.
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+cd "$ROOT" || exit 0
+
+if [ ! -f scripts/bump-version.mjs ]; then
+  exit 0
+fi
+
+node scripts/bump-version.mjs --from-hook || true

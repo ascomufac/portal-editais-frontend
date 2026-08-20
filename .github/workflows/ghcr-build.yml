@@ -2,7 +2,7 @@ name: Build and Push to GHCR
 
 on:
   push:
-    branches: [ main ]  # dispara o build quando você der push na branch main
+    branches: [ main ]
 
 jobs:
   build-and-push:
@@ -10,11 +10,33 @@ jobs:
 
     permissions:
       contents: read
-      packages: write  # necessário para publicar no GHCR
+      packages: write
 
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolver versão do build
+        id: meta
+        run: |
+          VERSION="$(git describe --tags --always --match 'v*' 2>/dev/null || echo '0.0.0')"
+          # Semver limpo: v1.2.3 ou v1.2.3-2-gabc → 1.2.3
+          CLEAN="$(echo "$VERSION" | sed -E 's/^v//; s/-.*//')"
+          if ! echo "$CLEAN" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            CLEAN="0.0.0"
+          fi
+          SHORT_SHA="$(echo "${GITHUB_SHA}" | cut -c1-7)"
+          BUILD_TIME="${{ github.event.head_commit.timestamp }}"
+          if [ -z "$BUILD_TIME" ] || [ "$BUILD_TIME" = "null" ]; then
+            BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          fi
+          echo "version=${CLEAN}" >> "$GITHUB_OUTPUT"
+          echo "describe=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "build_time=${BUILD_TIME}" >> "$GITHUB_OUTPUT"
+          echo "Resolved version=${CLEAN} describe=${VERSION} sha=${SHORT_SHA}"
 
       - name: Login no GitHub Container Registry (GHCR)
         uses: docker/login-action@v3
@@ -28,4 +50,11 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/ascomufac/portal-editais-frontend:latest
+          build-args: |
+            NEXT_PUBLIC_APP_VERSION=${{ steps.meta.outputs.version }}
+            NEXT_PUBLIC_GIT_SHA=${{ steps.meta.outputs.sha }}
+            NEXT_PUBLIC_BUILD_TIME=${{ steps.meta.outputs.build_time }}
+          tags: |
+            ghcr.io/ascomufac/portal-editais-frontend:latest
+            ghcr.io/ascomufac/portal-editais-frontend:${{ github.sha }}
+            ghcr.io/ascomufac/portal-editais-frontend:v${{ steps.meta.outputs.version }}
