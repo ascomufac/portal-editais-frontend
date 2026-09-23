@@ -4,6 +4,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
+# npm ci runs prepare, which needs the Git hook setup script.
+COPY scripts/setup-git-hooks.mjs ./scripts/setup-git-hooks.mjs
 RUN npm ci
 
 COPY . .
