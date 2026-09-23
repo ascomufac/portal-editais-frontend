@@ -63,6 +63,7 @@ const UploadFileDialog: React.FC<UploadFileDialogProps> = ({
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const itemsRef = useRef<QueueItem[]>([]);
+  const nextItemIdRef = useRef(0);
   const [items, setItems] = useState<QueueItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -88,7 +89,7 @@ const UploadFileDialog: React.FC<UploadFileDialogProps> = ({
         return;
       }
       next.push({
-        id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+        id: `upload-${nextItemIdRef.current++}`,
         file,
         title: titleFromFilename(file.name),
         status: 'ready',
