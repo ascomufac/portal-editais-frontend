@@ -1,4 +1,7 @@
 import { apiRequest } from '@/services/apiClient';
+import { HOME_UPDATES_PAGE, mapRecentToUpdates } from '@/lib/updates';
+
+export { mapRecentToUpdates };
 import {
   fetchFeaturedEditais,
   fetchRecentUpdates,
@@ -20,7 +23,7 @@ export type PloneContentMeta = {
 export async function getHomeData() {
   const [featured, recent] = await Promise.all([
     fetchFeaturedEditais(3),
-    fetchRecentUpdates(6),
+    fetchRecentUpdates(HOME_UPDATES_PAGE),
   ]);
   return { featured, recent };
 }
@@ -41,25 +44,4 @@ export async function getEditalMeta(
 
 export function setorDisplayTitle(setorId: string): string {
   return setorTitles[setorId] || setorId;
-}
-
-export function mapRecentToUpdates(recent: EditalItem[]) {
-  const formatDatePt = (dateString?: string): string => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    if (Number.isNaN(date.getTime())) return '';
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  };
-
-  return recent.map((item) => ({
-    id: item['@id'],
-    title: item.title || 'Sem título',
-    date: formatDatePt(item.modified || item.created),
-    description: item.type_title || item['@type'] || '',
-    href: `/edital/${toSitePath(item['@id'])}`,
-  }));
 }

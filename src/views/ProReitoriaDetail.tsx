@@ -31,8 +31,8 @@ const proReitoriasMeta = {
     ),
   },
   propeg: {
-    title: 'Propeg',
-    fullTitle: 'Pró-reitoria de Pesquisa e Pós-graduação',
+    title: 'Proppi',
+    fullTitle: 'Pró-reitoria de Pesquisa, Pós-graduação e Inovação',
     description:
       'Coordena as atividades de pesquisa científica e ensino de pós-graduação da UFAC.',
     icon: (

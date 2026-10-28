@@ -11,11 +11,18 @@ type Props = { params: Promise<{ setor: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { setor } = await params;
   const title = setorDisplayTitle(setor);
-  return buildMetadata({
+  const metadata = buildMetadata({
     title,
     description: `Editais e processos seletivos do setor ${title} na UFAC.`,
     path: `/setor/${setor}`,
   });
+  return {
+    ...metadata,
+    alternates: {
+      ...metadata.alternates,
+      types: { 'application/rss+xml': `/setor/${setor}/feed.xml` },
+    },
+  };
 }
 
 export default async function SetorRoute({ params }: Props) {

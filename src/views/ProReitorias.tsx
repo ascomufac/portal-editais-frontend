@@ -26,6 +26,11 @@ const iconMap: Record<string, React.JSX.Element> = {
       <PesquisaIcon />
     </div>
   ),
+  proppi: (
+    <div className="w-8 h-8">
+      <PesquisaIcon />
+    </div>
+  ),
   proex: (
     <div className="w-8 h-8">
       <ExtensaoIcon />
@@ -46,6 +51,7 @@ const iconMap: Record<string, React.JSX.Element> = {
 const colorMap: Record<string, string> = {
   prograd: 'bg-blue-50',
   propeg: 'bg-indigo-50',
+  proppi: 'bg-indigo-50',
   proex: 'bg-purple-50',
   proaes: 'bg-green-50',
   prodgep: 'bg-yellow-50',
@@ -53,7 +59,7 @@ const colorMap: Record<string, string> = {
 
 const descriptions: Record<string, string> = {
   prograd: 'Pró-reitoria de Graduação',
-  propeg: 'Pró-reitoria de Pesquisa e Pós-graduação',
+  propeg: 'Pró-reitoria de Pesquisa, Pós-graduação e Inovação',
   proex: 'Pró-reitoria de Extensão e Cultura',
   proaes: 'Pró-reitoria de Assuntos Estudantis',
   prodgep: 'Pró-reitoria de Gestão de Pessoas',

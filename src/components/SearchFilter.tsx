@@ -71,7 +71,7 @@ interface SectionOption {
 const sections: SectionOption[] = [
   { value: 'all', label: 'Todos', icon: <Settings2 /> },
   { value: 'graduacao', label: 'Graduação', icon: <GraduacaoIcon /> },
-  { value: 'pos-graduacao', label: 'Pesquisa e Pós-graduação', icon: <PesquisaIcon /> },
+  { value: 'pos-graduacao', label: 'Pesquisa, Pós-graduação e Inovação', icon: <PesquisaIcon /> },
   { value: 'extensao', label: 'Extensão e Cultura', icon: <ExtensaoIcon /> },
   { value: 'estudantis', label: 'Assuntos Estudantis', icon: <AssuntosEstudantisIcon /> },
   { value: 'pessoas', label: 'Gestão de Pessoas', icon: <GestaoPessoasIcon /> },

@@ -28,6 +28,8 @@ type UploadFileDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   parentPath: string;
+  /** Título da pasta atual; o trecho antes do primeiro hífen vira o título sugerido. */
+  folderTitle?: string;
   onUploaded: () => void | Promise<void>;
 };
 
@@ -55,10 +57,15 @@ const formatSize = (bytes: number) => {
 const titleFromFilename = (name: string) =>
   name.replace(/\.[^.]+$/, '') || name;
 
+/** "Edital CCSD nº 01/2026 - Seleção…" → "Edital CCSD nº 01/2026" (corta no 1º hífen/travessão). */
+const titleBeforeDash = (title: string) =>
+  title.split(/\s[-–—]\s/)[0].trim();
+
 const UploadFileDialog: React.FC<UploadFileDialogProps> = ({
   open,
   onOpenChange,
   parentPath,
+  folderTitle,
   onUploaded,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -79,6 +86,11 @@ const UploadFileDialog: React.FC<UploadFileDialogProps> = ({
     if (inputRef.current) inputRef.current.value = '';
   };
 
+  // Limpa a fila ao (re)abrir, independente de como o modal foi fechado antes.
+  useEffect(() => {
+    if (open) reset();
+  }, [open]);
+
   const addFiles = (list: FileList | File[]) => {
     const next: QueueItem[] = [];
     const rejected: string[] = [];
@@ -91,7 +103,9 @@ const UploadFileDialog: React.FC<UploadFileDialogProps> = ({
       next.push({
         id: `upload-${nextItemIdRef.current++}`,
         file,
-        title: titleFromFilename(file.name),
+        title: folderTitle?.trim()
+          ? titleBeforeDash(folderTitle)
+          : titleFromFilename(file.name),
         status: 'ready',
         progress: 0,
       });
@@ -191,7 +205,7 @@ const UploadFileDialog: React.FC<UploadFileDialogProps> = ({
         onOpenChange(next);
       }}
     >
-      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
         <DialogHeader className="space-y-1.5 border-b border-slate-100 px-6 pb-4 pt-6 text-left">
           <DialogTitle>Enviar arquivos</DialogTitle>
           <DialogDescription>
@@ -344,15 +358,24 @@ const UploadFileDialog: React.FC<UploadFileDialogProps> = ({
                         </div>
 
                         {item.status !== 'done' && (
-                          <Input
-                            value={item.title}
-                            disabled={uploading && item.status === 'uploading'}
-                            onChange={(e) =>
-                              updateItem(item.id, { title: e.target.value })
-                            }
-                            placeholder="Título no Ufac"
-                            className="h-9 rounded-lg text-sm"
-                          />
+                          <div className="space-y-1">
+                            <label
+                              htmlFor={`title-${item.id}`}
+                              className="text-xs font-medium text-slate-600"
+                            >
+                              Nome do arquivo
+                            </label>
+                            <Input
+                              id={`title-${item.id}`}
+                              value={item.title}
+                              disabled={uploading && item.status === 'uploading'}
+                              onChange={(e) =>
+                                updateItem(item.id, { title: e.target.value })
+                              }
+                              placeholder="Título no Ufac"
+                              className="h-9 rounded-lg text-sm"
+                            />
+                          </div>
                         )}
 
                         {item.status === 'uploading' && (

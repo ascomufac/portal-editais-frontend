@@ -72,6 +72,8 @@ export interface EditalCardProps {
 	state?: EditalItem;
 	/** Se false, oculta a estrela de favorito */
 	showFavorite?: boolean;
+	/** Etiqueta do setor (ex.: Prograd), exibida no card. */
+	setor?: string;
 }
 
 const EditalCard: React.FC<EditalCardProps> = ({
@@ -86,6 +88,7 @@ const EditalCard: React.FC<EditalCardProps> = ({
 	variant = 'card',
 	compact = false,
 	showFavorite = true,
+	setor,
 }) => {
 	const isMobile = useIsMobile();
 	const displayTitle = title || state?.title || 'Título não disponível';
@@ -125,7 +128,10 @@ const EditalCard: React.FC<EditalCardProps> = ({
 							{icon}
 						</div>
 						<div className='flex flex-col min-w-0'>
-							<h3 className='truncate text-base font-semibold text-slate-500'>
+							<h3
+								className='truncate text-base font-semibold text-slate-500'
+								title={displayTitle}
+							>
 								{displayTitle}
 							</h3>
 							<div className='text-neutral-400 text-xs flex flex-wrap gap-x-3 gap-y-1 mt-1'>
@@ -211,8 +217,15 @@ const EditalCard: React.FC<EditalCardProps> = ({
 							)}
 						</div>
 
+						{setor && (
+							<span className='mt-1 inline-flex w-fit rounded-full bg-ufac-lightBlue px-2.5 py-0.5 text-xs font-semibold text-ufac-blue'>
+								{setor}
+							</span>
+						)}
+
 						<div className={cn(compact ? 'mt-1' : 'mt-auto')}>
 							<h3
+								title={displayTitle}
 								className={cn(
 									'font-semibold text-ufac-blue-light line-clamp-2',
 									compact ? 'mb-0 text-sm sm:text-base' : 'mb-2 text-base sm:text-lg'

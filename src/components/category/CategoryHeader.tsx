@@ -14,9 +14,9 @@ const proReitoriaMap: Record<string, { abbreviation: string; fullName: string }>
     abbreviation: 'Prograd',
     fullName: 'Pró-reitoria de Graduação',
   },
-  'Pesquisa e Pós-graduação': {
-    abbreviation: 'Propeg',
-    fullName: 'Pró-reitoria de Pesquisa e Pós-graduação',
+  'Pesquisa, Pós-graduação e Inovação': {
+    abbreviation: 'Proppi',
+    fullName: 'Pró-reitoria de Pesquisa, Pós-graduação e Inovação',
   },
   'Extensão e Cultura': {
     abbreviation: 'Proex',
@@ -33,10 +33,10 @@ const proReitoriaMap: Record<string, { abbreviation: string; fullName: string }>
   Prograd: {
     abbreviation: 'Prograd',
     fullName: 'Pró-reitoria de Graduação',
-  },
-  Propeg: {
-    abbreviation: 'Propeg',
-    fullName: 'Pró-reitoria de Pesquisa e Pós-graduação',
+},
+  Proppi: {
+    abbreviation: 'Proppi',
+    fullName: 'Pró-reitoria de Pesquisa, Pós-graduação e Inovação',
   },
   Proex: {
     abbreviation: 'Proex',

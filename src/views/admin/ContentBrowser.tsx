@@ -33,7 +33,7 @@ import HistoryDialog from '@/components/admin/HistoryDialog';
 import SelectionToolbar, { type SortKey } from '@/components/admin/SelectionToolbar';
 import { modifiedAfterFromPreset } from '@/components/admin/adminSearchUtils';
 import { invalidateAdminFolderTreeCache } from '@/components/admin/AdminFolderTree';
-import SharingDialog from '@/components/admin/SharingDialog';
+import { copyShareLink } from '@/components/admin/shareLink';
 import UploadFileDialog from '@/components/admin/UploadFileDialog';
 import {
   adminDriveMenuContentClass,
@@ -53,7 +53,6 @@ import {
 import {
   ApiError,
   REVIEW_STATE_LABELS,
-  TYPE_LABELS,
   adminContentHref,
   copyContent,
   deleteContent,
@@ -103,7 +102,6 @@ import {
   Pencil,
   RefreshCw,
   Scissors,
-  Share2,
   Trash2,
   Upload,
   Workflow,
@@ -184,8 +182,6 @@ const ContentBrowser: React.FC = () => {
   const [editingItem, setEditingItem] = useState<PloneContentItem | null>(null);
 
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [sharingOpen, setSharingOpen] = useState(false);
-  const [sharingPath, setSharingPath] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyPath, setHistoryPath] = useState('');
   const [historyTitle, setHistoryTitle] = useState('');
@@ -209,8 +205,8 @@ const ContentBrowser: React.FC = () => {
   const [modifiedFilter, setModifiedFilter] = useState(
     () => searchParams.get('modified') || 'any'
   );
-  const [sortKey, setSortKey] = useState<SortKey>('position');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [sortKey, setSortKey] = useState<SortKey>('created');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [clipboard, setClipboard] = useState<ClipboardPayload | null>(() => readClipboard());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -227,8 +223,14 @@ const ContentBrowser: React.FC = () => {
       SearchableText: query.trim() || undefined,
       Creator: creatorFilter.trim() || undefined,
       modifiedAfter: modifiedAfterFromPreset(modifiedFilter),
+      sortByCreated:
+        sortKey === 'created'
+          ? sortDir === 'asc'
+            ? ('ascending' as const)
+            : ('descending' as const)
+          : undefined,
     }),
-    [typeFilter, stateFilter, query, creatorFilter, modifiedFilter]
+    [typeFilter, stateFilter, query, creatorFilter, modifiedFilter, sortKey, sortDir]
   );
 
   const loadPage = useCallback(
@@ -323,6 +325,9 @@ const ContentBrowser: React.FC = () => {
 
   const hasMore = items.length < itemsTotal;
 
+  /** Pasta de edital = contém arquivos (pastas de agrupamento só têm subpastas). */
+  const isEditalFolder = items.some((item) => !isFolderishContent(item));
+
   const loadMore = useCallback(() => {
     if (!hasMore || loading || loadingMore || fetchLock.current) return;
     void loadPage(items.length, true);
@@ -361,7 +366,9 @@ const ContentBrowser: React.FC = () => {
     }
     return [...items].sort((a, b) => {
       let cmp = 0;
-      if (sortKey === 'modified') {
+      if (sortKey === 'created') {
+        cmp = (a.created || '').localeCompare(b.created || '');
+      } else if (sortKey === 'modified') {
         cmp = (a.modified || '').localeCompare(b.modified || '');
       } else if (sortKey === 'type') {
         cmp = getContentTypeLabel(a).localeCompare(getContentTypeLabel(b), 'pt-BR');
@@ -392,7 +399,7 @@ const ContentBrowser: React.FC = () => {
       return;
     }
     setSortKey(key);
-    setSortDir(key === 'modified' ? 'desc' : 'asc');
+    setSortDir(key === 'created' || key === 'modified' ? 'desc' : 'asc');
   };
 
   const sortIndicator = (key: SortKey) => {
@@ -453,8 +460,7 @@ const ContentBrowser: React.FC = () => {
         setEditingItem(target);
         setEditorOpen(true);
       } else if (openAction === 'share') {
-        setSharingPath(toPlonePath(target['@id']));
-        setSharingOpen(true);
+        void copyShareLink(target);
       } else if (openAction === 'history') {
         setHistoryPath(toPlonePath(target['@id']));
         setHistoryTitle(getContentDisplayName(target));
@@ -840,81 +846,6 @@ const ContentBrowser: React.FC = () => {
           Visualizar
         </Item>
       )}
-      <Item className={adminDriveMenuItemClass} onClick={() => openEdit(item)}>
-        <Pencil className={adminDriveMenuIconClass} />
-        Editar
-      </Item>
-      <Item
-        className={adminDriveMenuItemClass}
-        onClick={() => {
-          setSharingPath(toPlonePath(item['@id']));
-          setSharingOpen(true);
-        }}
-      >
-        <Share2 className={adminDriveMenuIconClass} />
-        Compartilhar
-      </Item>
-      <Item
-        className={adminDriveMenuItemClass}
-        onClick={() => {
-          setHistoryPath(toPlonePath(item['@id']));
-          setHistoryTitle(getContentDisplayName(item));
-          setHistoryOpen(true);
-        }}
-      >
-        <History className={adminDriveMenuIconClass} />
-        Histórico
-      </Item>
-      <Separator className={adminDriveMenuSeparatorClass} />
-      <Item
-        className={adminDriveMenuItemClass}
-        onClick={() => putItemClipboard(item, 'cut')}
-      >
-        <Scissors className={adminDriveMenuIconClass} />
-        Recortar
-      </Item>
-      <Item
-        className={adminDriveMenuItemClass}
-        onClick={() => putItemClipboard(item, 'copy')}
-      >
-        <Copy className={adminDriveMenuIconClass} />
-        Copiar
-      </Item>
-      <Item
-        className={adminDriveMenuItemClass}
-        onClick={() => void reorderItems([item], 'top')}
-      >
-        <ArrowUpToLine className={adminDriveMenuIconClass} />
-        Mover para o topo da pasta
-      </Item>
-      <Item
-        className={adminDriveMenuItemClass}
-        onClick={() => void reorderItems([item], 'bottom')}
-      >
-        <ArrowDownToLine className={adminDriveMenuIconClass} />
-        Mover para o final da pasta
-      </Item>
-      <Item
-        className={adminDriveMenuItemClass}
-        onClick={() => toggleSelectAll(true)}
-      >
-        <CheckCheck className={adminDriveMenuIconClass} />
-        Selecionar todos os itens
-      </Item>
-      <Separator className={adminDriveMenuSeparatorClass} />
-      <Item
-        className={adminDriveMenuItemClass}
-        onClick={() => {
-          setRenameTarget(item);
-          setRenameValue(item.id || '');
-        }}
-      >
-        Renomear (id)
-      </Item>
-      <Item className={adminDriveMenuItemClass} onClick={() => handleCopyHere(item)}>
-        <Copy className={adminDriveMenuIconClass} />
-        Fazer uma cópia
-      </Item>
       {canDownloadContent(item) && (
         <Item
           className={adminDriveMenuItemClass}
@@ -934,14 +865,40 @@ const ContentBrowser: React.FC = () => {
           Fazer download
         </Item>
       )}
+      {(canViewContent(item) || canDownloadContent(item)) && (
+        <Separator className={adminDriveMenuSeparatorClass} />
+      )}
+      <Item className={adminDriveMenuItemClass} onClick={() => openEdit(item)}>
+        <Pencil className={adminDriveMenuIconClass} />
+        Editar
+      </Item>
       <Item
         className={adminDriveMenuItemClass}
         onClick={() => {
-          setMoveTarget(item);
-          setMovePath('');
+          setRenameTarget(item);
+          setRenameValue(item.id || '');
         }}
       >
-        Mover para…
+        Renomear (id)
+      </Item>
+      <Item
+        className={adminDriveMenuItemClass}
+        onClick={() => {
+          setHistoryPath(toPlonePath(item['@id']));
+          setHistoryTitle(getContentDisplayName(item));
+          setHistoryOpen(true);
+        }}
+      >
+        <History className={adminDriveMenuIconClass} />
+        Histórico
+      </Item>
+      <Separator className={adminDriveMenuSeparatorClass} />
+      <Item
+        className={adminDriveMenuItemClass}
+        onClick={() => void copyShareLink(item)}
+      >
+        <Link2 className={adminDriveMenuIconClass} />
+        Copiar link
       </Item>
       {isUnpublished(item) && (
         <Item
@@ -995,6 +952,56 @@ const ContentBrowser: React.FC = () => {
           Tornar privado
         </Item>
       )}
+      <Separator className={adminDriveMenuSeparatorClass} />
+      <Item
+        className={adminDriveMenuItemClass}
+        onClick={() => void reorderItems([item], 'top')}
+      >
+        <ArrowUpToLine className={adminDriveMenuIconClass} />
+        Mover para o topo da pasta
+      </Item>
+      <Item
+        className={adminDriveMenuItemClass}
+        onClick={() => void reorderItems([item], 'bottom')}
+      >
+        <ArrowDownToLine className={adminDriveMenuIconClass} />
+        Mover para o final da pasta
+      </Item>
+      <Item
+        className={adminDriveMenuItemClass}
+        onClick={() => {
+          setMoveTarget(item);
+          setMovePath('');
+        }}
+      >
+        Mover para…
+      </Item>
+      <Separator className={adminDriveMenuSeparatorClass} />
+      <Item
+        className={adminDriveMenuItemClass}
+        onClick={() => putItemClipboard(item, 'copy')}
+      >
+        <Copy className={adminDriveMenuIconClass} />
+        Copiar
+      </Item>
+      <Item
+        className={adminDriveMenuItemClass}
+        onClick={() => putItemClipboard(item, 'cut')}
+      >
+        <Scissors className={adminDriveMenuIconClass} />
+        Recortar
+      </Item>
+      <Item className={adminDriveMenuItemClass} onClick={() => handleCopyHere(item)}>
+        <Copy className={adminDriveMenuIconClass} />
+        Fazer uma cópia
+      </Item>
+      <Item
+        className={adminDriveMenuItemClass}
+        onClick={() => toggleSelectAll(true)}
+      >
+        <CheckCheck className={adminDriveMenuIconClass} />
+        Selecionar todos os itens
+      </Item>
       <Separator className={adminDriveMenuSeparatorClass} />
       <Item
         className={adminDriveMenuDangerItemClass}
@@ -1064,22 +1071,6 @@ const ContentBrowser: React.FC = () => {
     </ContextMenu>
   );
 
-  const typeOptions = useMemo(() => {
-    const set = new Set(items.map((i) => i['@type']));
-    return Array.from(set);
-  }, [items]);
-
-  const stateOptions = useMemo(() => {
-    const set = new Set(
-      items.map((i) => getReviewState(i)).filter(Boolean)
-    );
-    const preferred = ['private', 'published', 'pending', 'visible'];
-    return [
-      ...preferred.filter((s) => set.has(s)),
-      ...Array.from(set).filter((s) => !preferred.includes(s)).sort(),
-    ];
-  }, [items]);
-
   const privateCount = useMemo(
     () => items.filter((i) => getReviewState(i) === 'private').length,
     [items]
@@ -1125,7 +1116,7 @@ const ContentBrowser: React.FC = () => {
     const privateItem = getReviewState(item) === 'private';
     const draft = isUnpublished(item) && !privateItem;
     return cn(
-      'group flex h-11 w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-xl border py-1.5 pl-1.5 pr-1 transition',
+      'group flex min-h-11 w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-xl border py-1.5 pl-1.5 pr-1 transition',
       privateItem
         ? 'border-transparent bg-slate-100/90 hover:bg-slate-100'
         : draft
@@ -1198,20 +1189,22 @@ const ContentBrowser: React.FC = () => {
                 type="button"
                 className="inline-flex max-w-full items-center gap-1 truncate text-2xl font-normal text-slate-900 hover:bg-slate-50 rounded-lg px-1 -ml-1"
               >
-                <span className="truncate">{parent ? getContentDisplayName(parent) : 'Editais'}</span>
+                <span
+                  className="truncate"
+                  title={parent ? getContentDisplayName(parent) : 'Editais'}
+                >
+                  {parent ? getContentDisplayName(parent) : 'Editais'}
+                </span>
                 <ChevronDown className="h-5 w-5 shrink-0 text-slate-500" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="rounded-xl">
-              <DropdownMenuItem
-                onClick={() => {
-                  setSharingPath(path);
-                  setSharingOpen(true);
-                }}
-              >
-                <Share2 className="mr-2 h-4 w-4" />
-                Compartilhar
-              </DropdownMenuItem>
+              {parent && (
+                <DropdownMenuItem onClick={() => void copyShareLink(parent)}>
+                  <Link2 className="mr-2 h-4 w-4" />
+                  Copiar link
+                </DropdownMenuItem>
+              )}
               {parent && parent['@type'] !== 'Plone Site' && (
                 <DropdownMenuItem onClick={() => openEdit(parent)}>
                   <Pencil className="mr-2 h-4 w-4" />
@@ -1236,7 +1229,9 @@ const ContentBrowser: React.FC = () => {
               viewMode === 'list' && 'bg-white text-ufac-blue shadow-sm'
             )}
             onClick={() => setViewMode('list')}
-            title="Lista"
+            title="Visualizar em lista"
+            aria-label="Visualizar em lista"
+            aria-pressed={viewMode === 'list'}
           >
             <LayoutList className="h-4 w-4" />
           </Button>
@@ -1249,7 +1244,9 @@ const ContentBrowser: React.FC = () => {
               viewMode === 'grid' && 'bg-white text-ufac-blue shadow-sm'
             )}
             onClick={() => setViewMode('grid')}
-            title="Grade"
+            title="Visualizar em grade"
+            aria-label="Visualizar em grade"
+            aria-pressed={viewMode === 'grid'}
           >
             <LayoutGrid className="h-4 w-4" />
           </Button>
@@ -1282,9 +1279,7 @@ const ContentBrowser: React.FC = () => {
           onPublish={handleBulkPublish}
           onRetract={handleBulkRetract}
           onShare={() => {
-            if (!primarySelected) return;
-            setSharingPath(toPlonePath(primarySelected['@id']));
-            setSharingOpen(true);
+            if (primarySelected) void copyShareLink(primarySelected);
           }}
           onView={() => {
             if (primarySelected) openView(primarySelected);
@@ -1299,124 +1294,14 @@ const ContentBrowser: React.FC = () => {
         />
       )}
 
-      {/* Filtros de exibição — sempre visíveis */}
+      {/* Barra de status: colar + contagem de itens */}
       <div className="flex flex-wrap items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button type="button" className={chipClass(typeFilter !== 'all')}>
-                Tipo
-                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="rounded-xl">
-              <DropdownMenuItem onClick={() => setTypeFilter('all')}>
-                Todos
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {typeOptions.map((t) => (
-                <DropdownMenuItem key={t} onClick={() => setTypeFilter(t)}>
-                  {TYPE_LABELS[t] || t}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button type="button" className={chipClass(sortKey !== 'position')}>
-                Ordenar
-                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="rounded-xl">
-              <DropdownMenuItem onClick={() => handleColumnSort('position')}>
-                Posição na pasta
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleColumnSort('name')}>Nome</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleColumnSort('modified')}>
-                Modificação
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleColumnSort('type')}>Tipo</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleColumnSort('owner')}>
-                Proprietário
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button type="button" className={chipClass(stateFilter !== 'all')}>
-                Visibilidade
-                {stateFilter !== 'all'
-                  ? `: ${REVIEW_STATE_LABELS[stateFilter] || stateFilter}`
-                  : privateCount > 0
-                    ? ` (${privateCount})`
-                    : ''}
-                <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="rounded-xl">
-              <DropdownMenuItem onClick={() => setStateFilter('all')}>
-                Todos
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setStateFilter('private')}>
-                Só privados
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStateFilter('published')}>
-                Só publicados
-              </DropdownMenuItem>
-              {stateOptions
-                .filter((s) => s !== 'private' && s !== 'published')
-                .map((s) => (
-                  <DropdownMenuItem key={s} onClick={() => setStateFilter(s)}>
-                    Só {REVIEW_STATE_LABELS[s] || s}
-                  </DropdownMenuItem>
-                ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {canUpload && (
-            <button
-              type="button"
-              className={chipClass(false)}
-              onClick={() => setUploadOpen(true)}
-            >
-              <Upload className="mr-1 inline h-3.5 w-3.5" />
-              Enviar
-            </button>
-          )}
-
           {clipboard?.paths.length ? (
             <button type="button" className={chipClass(true)} onClick={handlePaste}>
               <ClipboardPaste className="mr-1 inline h-3.5 w-3.5" />
               Colar ({clipboard.paths.length})
             </button>
           ) : null}
-
-          {workflow?.transitions && workflow.transitions.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button type="button" className={chipClass(false)}>
-                  Estado
-                  <ChevronDown className="h-3.5 w-3.5 shrink-0" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="rounded-xl">
-                {workflow.transitions.map((t) => {
-                  const tid = getTransitionId(t);
-                  return (
-                    <DropdownMenuItem
-                      key={tid || t['@id'] || t.title}
-                      onClick={() => tid && handleTransition(tid)}
-                    >
-                      {t.title || tid}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
 
           <span className="ml-auto text-xs text-slate-500">
             {loading && items.length === 0
@@ -1532,7 +1417,10 @@ const ContentBrowser: React.FC = () => {
                         <AdminDriveIcon item={item} compact />
                       </span>
                       <div className="flex min-h-8 min-w-0 flex-1 items-center gap-1.5 self-center">
-                        <p className="truncate text-left text-sm font-medium leading-none text-slate-900">
+                        <p
+                          className="line-clamp-2 break-words text-left text-sm font-medium leading-tight text-slate-900"
+                          title={getContentDisplayName(item)}
+                        >
                           {getContentDisplayName(item)}
                         </p>
                         {stateBadge(item)}
@@ -1566,6 +1454,18 @@ const ContentBrowser: React.FC = () => {
               <p className="text-xs text-slate-400">
                 Fim da lista · {itemsTotal.toLocaleString('pt-BR')} itens
               </p>
+            )}
+            {!hasMore && isEditalFolder && canUpload && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-1 gap-1.5 rounded-full border-ufac-blue/30 text-ufac-blue hover:bg-ufac-lightBlue hover:text-ufac-blue"
+                onClick={() => setUploadOpen(true)}
+              >
+                <Upload className="h-4 w-4" />
+                Adicionar atualização
+              </Button>
             )}
           </div>
         </div>
@@ -1657,7 +1557,10 @@ const ContentBrowser: React.FC = () => {
                       </div>
                       <div className="flex min-w-0 items-center gap-3">
                         <AdminDriveIcon item={item} />
-                        <span className="truncate text-[15px] text-slate-900">
+                        <span
+                          className="truncate text-[15px] text-slate-900"
+                          title={getContentDisplayName(item)}
+                        >
                           {getContentDisplayName(item)}
                         </span>
                         {stateBadge(item)}
@@ -1701,6 +1604,18 @@ const ContentBrowser: React.FC = () => {
                 Fim da lista · {itemsTotal.toLocaleString('pt-BR')} itens
               </p>
             )}
+            {!hasMore && isEditalFolder && canUpload && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-1 gap-1.5 rounded-full border-ufac-blue/30 text-ufac-blue hover:bg-ufac-lightBlue hover:text-ufac-blue"
+                onClick={() => setUploadOpen(true)}
+              >
+                <Upload className="h-4 w-4" />
+                Adicionar atualização
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -1724,16 +1639,11 @@ const ContentBrowser: React.FC = () => {
         open={uploadOpen}
         onOpenChange={setUploadOpen}
         parentPath={path}
+        folderTitle={parent?.title}
         onUploaded={async () => {
           setUploadOpen(false);
           await reloadAndSyncTree();
         }}
-      />
-
-      <SharingDialog
-        open={sharingOpen}
-        onOpenChange={setSharingOpen}
-        path={sharingPath}
       />
 
       <HistoryDialog

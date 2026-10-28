@@ -385,6 +385,8 @@ export const listFolderContents = async (
     modifiedAfter?: string;
     /** Se true, pesquisa na subárvore (sem depth=1). */
     deep?: boolean;
+    /** Ordena por data de criação no servidor (padrão: posição na pasta). */
+    sortByCreated?: 'ascending' | 'descending';
   } = {}
 ): Promise<{
   parent: PloneContentItem;
@@ -400,6 +402,7 @@ export const listFolderContents = async (
     Creator,
     modifiedAfter,
     deep = false,
+    sortByCreated,
   } = options;
   const params = new URLSearchParams();
   // @search com depth=1 inclui private quando autenticado (folder.items costuma vir do cache).
@@ -420,12 +423,17 @@ export const listFolderContents = async (
   params.append('metadata_fields', 'portal_type');
   params.append('b_size', String(b_size));
   params.append('b_start', String(b_start));
-  params.append(
-    'sort_on',
-    useDeep ? 'modified' : 'getObjPositionInParent'
-  );
-  if (useDeep) {
-    params.append('sort_order', 'descending');
+  if (sortByCreated) {
+    params.append('sort_on', 'created');
+    params.append('sort_order', sortByCreated);
+  } else {
+    params.append(
+      'sort_on',
+      useDeep ? 'modified' : 'getObjPositionInParent'
+    );
+    if (useDeep) {
+      params.append('sort_order', 'descending');
+    }
   }
 
   if (portal_type?.trim()) {
