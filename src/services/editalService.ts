@@ -22,7 +22,7 @@ export const categoryToSetorMap: Record<string, string> = {
 /** Títulos de exibição por setor */
 export const setorTitles: Record<string, string> = {
   prograd: 'Graduação',
-  propeg: 'Pesquisa e Pós-graduação',
+  propeg: 'Pesquisa, Pós-graduação e Inovação',
   proex: 'Extensão e Cultura',
   proaes: 'Assuntos Estudantis',
   prodgep: 'Gestão de Pessoas',
@@ -82,18 +82,27 @@ export const isImportantAdminSidebarFolder = (item: {
 
 /**
  * Ordem preferencial do menu (depois de "Início", que é fixo na sidebar):
- * pró-reitorias → CAP → Centro de Idiomas → DCE → demais (ordem da API).
+ * pró-reitorias → unidades de ensino → órgãos e núcleos → demais (ordem da API).
  */
 const MENU_PRIORITY_IDS = [
+  // Pró-reitorias
   'prograd',
   'propeg',
+  'proppi',
   'proex',
   'proaes',
   'prodgep',
   'proplan',
+  // Unidades de ensino
   'colegio-de-aplicacao',
   'centro-idiomas',
+  'centros',
+  // Órgãos e núcleos
+  'conselho-universitario',
   'dce',
+  'niead',
+  'nups',
+  'cooperacao-interinstitucional',
 ] as const;
 
 const resolveMenuPriority = (item: { id: string; title?: string }): number => {
@@ -142,6 +151,18 @@ export const toSitePath = (url: string): string =>
  * Monta a rota interna do portal para um item do Plone
  */
 export const toEditalHref = (url: string): string => `/edital/${toSitePath(url)}`;
+
+/**
+ * Rota do portal para abrir um item: arquivos/imagens não têm página própria,
+ * então abrem a pasta (edital) onde estão.
+ */
+export const toItemHref = (item: { '@id': string; '@type'?: string }): string => {
+  if (item['@type'] === 'File' || item['@type'] === 'Image') {
+    const parent = toSitePath(item['@id']).split('/').filter(Boolean).slice(0, -1).join('/');
+    if (parent) return toEditalHref(parent);
+  }
+  return toEditalHref(item['@id']);
+};
 
 /**
  * Monta a rota de setor a partir de um path Plone
@@ -250,6 +271,8 @@ export interface EditalItem {
   effective: string;
   Creator?: string;
   creators?: string[];
+  /** Título da pasta que contém o item (preenchido nas atualizações da home). */
+  parentTitle?: string;
   items_total?: number;
   is_folderish?: boolean;
 }
@@ -453,6 +476,11 @@ const hrefFromSitePath = (sitePath: string, isLink = false, remoteUrl?: string):
   return toEditalHref(sitePath);
 };
 
+/** Rótulos exibidos no menu (somente front; o id Plone não muda). */
+const MENU_TITLE_OVERRIDES: Record<string, string> = {
+  propeg: 'Proppi (Propeg)',
+};
+
 /**
  * Converte nó do @navigation (ou item da raiz) em MenuItem
  */
@@ -470,7 +498,7 @@ const mapNavNodeToMenuItem = (node: PloneNavNode, forceLink = false): MenuItem =
 
   return {
     id,
-    title: node.title,
+    title: MENU_TITLE_OVERRIDES[id] ?? node.title,
     url: sitePath,
     href: hrefFromSitePath(sitePath, isLink, node.remoteUrl),
     description: node.description,
@@ -493,7 +521,7 @@ const mapApiItemToMenuItem = (
 
   return {
     id,
-    title: item.title,
+    title: MENU_TITLE_OVERRIDES[id] ?? item.title,
     url: sitePath,
     href: hrefFromSitePath(sitePath, isLink, item.remoteUrl),
     description: item.description,
@@ -633,15 +661,49 @@ export const fetchFeaturedEditais = async (limit = 6): Promise<EditalItem[]> => 
 /**
  * Atualizações recentes (últimos itens modificados no portal)
  */
-export const fetchRecentUpdates = async (limit = 8): Promise<EditalItem[]> => {
+/** Título da pasta pai de cada item (uma consulta por pasta distinta). */
+const attachParentTitles = async (items: EditalItem[]): Promise<EditalItem[]> => {
+  const parentOf = (item: EditalItem) =>
+    toSitePath(item['@id']).split('/').filter(Boolean).slice(0, -1).join('/');
+
+  const parents = Array.from(new Set(items.map(parentOf).filter(Boolean)));
+  const titles = new Map<string, string>();
+  await Promise.all(
+    parents.map(async (path) => {
+      try {
+        const folder = await apiRequest<{ title?: string }>(`/${path}`, {
+          auth: false,
+        });
+        if (folder?.title) titles.set(path, folder.title);
+      } catch {
+        // sem título da pasta: o item mantém o próprio título
+      }
+    })
+  );
+
+  return items.map((item) => {
+    const parentTitle = titles.get(parentOf(item));
+    return parentTitle ? { ...item, parentTitle } : item;
+  });
+};
+
+/** Últimos arquivos publicados; o título da pasta acompanha cada um. */
+export const fetchRecentUpdates = async (
+  limit = 8,
+  modifiedFrom?: string
+): Promise<EditalItem[]> => {
   const data = await searchSite({
+    portal_type: 'File',
     SearchableText: 'Edital',
     b_size: limit,
     sort_on: 'modified',
     sort_order: 'descending',
+    ...(modifiedFrom
+      ? { dateFilter: { field: 'modified' as const, from: modifiedFrom } }
+      : {}),
   });
 
-  return data.items ?? [];
+  return attachParentTitles(data.items ?? []);
 };
 
 /**

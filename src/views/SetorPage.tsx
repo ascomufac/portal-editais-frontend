@@ -13,7 +13,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import MainLayout from '@/layouts/MainLayout';
 import {
 	appendDateRangeParams,
@@ -35,8 +34,8 @@ import {
 	FilePlus,
 	FileText,
 	Folder,
-	Layers,
 	LayoutGrid,
+	Rss,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -64,11 +63,8 @@ const formatDate = (
 	};
 };
 
-const FILTER_OPTIONS = [
-	{ value: 'All', label: 'Todos', icon: Layers },
-	{ value: 'Folder', label: 'Pastas', icon: Folder },
-	{ value: 'File', label: 'Arquivos', icon: FileText },
-];
+/** Agrupamentos exibem apenas as pastas dos editais. */
+const FILTER_TYPE = 'Folder';
 
 const SORT_OPTIONS = [
 	{ value: 'sortable_title', label: 'Título', icon: FileText },
@@ -92,9 +88,6 @@ const SetorPage: React.FC = () => {
 	const [limit, setLimit] = useState<number>(20);
 	const [start, setStart] = useState<number>(0);
 	const [totalItems, setTotalItems] = useState<number>(0);
-	const [filterType, setFilterType] = useState<'Folder' | 'File' | 'All'>(
-		'Folder'
-	);
 	const [sortOrder, setSortOrder] = useState<
 		'created' | 'modified' | 'sortable_title' | 'effective'
 	>('modified');
@@ -219,9 +212,7 @@ const SetorPage: React.FC = () => {
 				}
 
 				const searchParams = new URLSearchParams();
-				if (filterType !== 'All') {
-					searchParams.append('portal_type', filterType);
-				}
+				searchParams.append('portal_type', FILTER_TYPE);
 
 				searchParams.append('b_start', `${start}`);
 				searchParams.append('b_size', `${limit}`);
@@ -274,7 +265,7 @@ const SetorPage: React.FC = () => {
 			}
 		};
 		fetchData();
-	}, [setor, filterType, sortOrder, sortDirection, start, limit, dateFilter]);
+	}, [setor, sortOrder, sortDirection, start, limit, dateFilter]);
 
 	const handleLoadMore = () => {
 		setStart((prevStart) => prevStart + limit);
@@ -298,35 +289,9 @@ const SetorPage: React.FC = () => {
 							Editais disponíveis
 						</h3> */}
 
-						<div className='mb-4 mt-3 flex flex-col gap-2 rounded-xl bg-white p-2 shadow-sm sm:flex-row sm:flex-nowrap sm:items-center sm:gap-2 sm:overflow-x-auto sm:no-scrollbar'>
-							<div className='flex min-w-0 items-center gap-2 overflow-x-auto no-scrollbar'>
-							<Tabs
-								value={filterType}
-								onValueChange={(val) => {
-									if (val) {
-										setFilterType(val as 'Folder' | 'File' | 'All');
-										goToFirstPage();
-									}
-								}}>
-								<TabsList
-									className='h-9 shrink-0 rounded-lg bg-ufac-lightBlue/40 p-0.5'
-									role='tablist'
-									aria-label='Filtrar por tipo de item'>
-									{FILTER_OPTIONS.map(({ value, label, icon: Icon }) => (
-										<TabsTrigger
-											className='h-8 gap-1.5 rounded-md px-2.5 text-sm data-[state=active]:bg-white data-[state=active]:text-ufac-blue data-[state=active]:shadow-sm'
-											key={value}
-											value={value}
-											role='tab'
-											aria-selected={filterType === value}
-											aria-label={`Filtrar por ${label}`}>
-											<Icon className='h-4 w-4' aria-hidden='true' />
-											<span className='hidden sm:inline'>{label}</span>
-										</TabsTrigger>
-									))}
-								</TabsList>
-							</Tabs>
-
+						<div className='mb-4 mt-3 flex flex-col gap-2 rounded-xl bg-white p-2 shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2'>
+							<div className='flex min-w-0 flex-wrap items-center gap-2'>
+							<span className='hidden shrink-0 text-xs font-medium text-slate-500 sm:inline'>Ordenar por:</span>
 							<div className='flex h-9 shrink-0 items-center rounded-lg bg-ufac-lightBlue/40 p-0.5'>
 								<Select
 									value={sortOrder}
@@ -340,7 +305,12 @@ const SetorPage: React.FC = () => {
 													| 'effective'
 											);
 									}}>
-									<SelectTrigger className='h-8 w-[120px] sm:w-[138px] border-none bg-transparent px-2.5 text-sm shadow-none focus:ring-0'>
+									<SelectTrigger
+										title={`Ordenar por: ${
+											SORT_OPTIONS.find((o) => o.value === sortOrder)?.label ?? ''
+										}`}
+										aria-label='Ordenar por'
+										className='h-8 w-[130px] sm:w-[156px] border-none bg-transparent px-2.5 text-sm shadow-none focus:ring-0'>
 										<SelectValue placeholder='Ordenar' />
 									</SelectTrigger>
 									<SelectContent className='rounded-xl border-none bg-white text-ufac-blue'>
@@ -368,6 +338,15 @@ const SetorPage: React.FC = () => {
 									aria-label={`Ordenar em ordem ${
 										sortDirection === 'ascending' ? 'decrescente' : 'crescente'
 									}`}
+									title={
+										sortOrder === 'sortable_title'
+											? sortDirection === 'ascending'
+												? 'Ordem A–Z (clique para inverter: Z–A)'
+												: 'Ordem Z–A (clique para inverter: A–Z)'
+											: sortDirection === 'ascending'
+												? 'Mais antigos primeiro (clique para ver os mais recentes primeiro)'
+												: 'Mais recentes primeiro (clique para ver os mais antigos primeiro)'
+									}
 									className='flex h-8 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-ufac-blue hover:bg-white focus:outline-none focus-visible:ring-1 focus-visible:ring-ufac-blue'>
 									{sortDirection === 'ascending' ? (
 										sortOrder === 'sortable_title' ? (
@@ -396,7 +375,8 @@ const SetorPage: React.FC = () => {
 							</div>
 							</div>
 
-							<div className='flex min-w-0 items-center gap-2 overflow-x-auto no-scrollbar sm:ml-auto'>
+							<div className='flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto'>
+								<span className='hidden shrink-0 text-xs font-medium text-slate-500 sm:inline'>Filtrar:</span>
 								<DateRangeFilter
 									value={dateFilter}
 									onChange={handleDateFilterChange}
@@ -405,22 +385,36 @@ const SetorPage: React.FC = () => {
 									compact
 								/>
 
+							<span className='hidden shrink-0 text-xs font-medium text-slate-500 sm:inline'>Modo de visualização:</span>
 							<button
 								type='button'
 								onClick={() =>
 									setCardLayout((prev) => (prev === 'card' ? 'line' : 'card'))
 								}
 								aria-label={`Trocar para visualização em ${
-									cardLayout === 'card' ? 'lista' : 'cartões'
+									cardLayout === 'card' ? 'lista' : 'grade'
 								}`}
-								title={cardLayout === 'card' ? 'Lista' : 'Cards'}
-								className='ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ufac-lightBlue/40 text-ufac-blue hover:bg-ufac-lightBlue focus:outline-none focus-visible:ring-1 focus-visible:ring-ufac-blue sm:ml-0'>
+								title={
+									cardLayout === 'card'
+										? 'Visualização em grade (clique para mudar para lista)'
+										: 'Visualização em lista (clique para mudar para grade)'
+								}
+								className='flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ufac-lightBlue/40 text-ufac-blue hover:bg-ufac-lightBlue focus:outline-none focus-visible:ring-1 focus-visible:ring-ufac-blue sm:ml-0'>
 								{cardLayout === 'card' ? (
 									<AlignJustify className='h-4 w-4' />
 								) : (
 									<LayoutGrid className='h-4 w-4' />
 								)}
 							</button>
+
+							<a
+								href={`/setor/${setor}/feed.xml`}
+								title='Receber as atualizações deste setor por RSS'
+								aria-label='Feed RSS deste setor'
+								className='flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-ufac-lightBlue/40 px-2.5 text-sm font-medium text-ufac-blue hover:bg-ufac-lightBlue focus:outline-none focus-visible:ring-1 focus-visible:ring-ufac-blue'>
+								<Rss className='h-4 w-4' aria-hidden='true' />
+								<span className='hidden sm:inline'>RSS</span>
+							</a>
 							</div>
 						</div>
 
@@ -432,9 +426,7 @@ const SetorPage: React.FC = () => {
 							}`}
 							aria-live='polite'>
 							{categoryData?.items
-								?.filter(
-									(item) => filterType === 'All' || item['@type'] === filterType
-								)
+								?.filter((item) => item['@type'] === FILTER_TYPE)
 								.map((editalItem) => {
 									console.log({
 										editalItem: `/edital/${editalItem['@id'].replace(

@@ -16,9 +16,15 @@ interface MainLayoutProps {
   children: React.ReactNode;
   pageTitle?: string;
   className?: string;
+  /** Oculta a busca do cabeçalho (ex.: home, que já tem busca em destaque). */
+  hideHeaderSearch?: boolean;
 }
 
-const MainLayout: React.FC<MainLayoutProps> = ({ children, className }) => {
+const MainLayout: React.FC<MainLayoutProps> = ({
+  children,
+  className,
+  hideHeaderSearch = false,
+}) => {
   const isMobile = useIsMobile();
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -105,21 +111,23 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, className }) => {
 
               {isMobile ? (
                 <div className="ml-auto flex shrink-0 items-center gap-0.5">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setMobileSearchOpen(true)}
-                    className="text-white hover:bg-white/10 hover:text-white"
-                    aria-label="Pesquisar edital"
-                  >
-                    <Search className="h-5 w-5" />
-                  </Button>
+                  {!hideHeaderSearch && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setMobileSearchOpen(true)}
+                      className="text-white hover:bg-white/10 hover:text-white"
+                      aria-label="Pesquisar edital"
+                    >
+                      <Search className="h-5 w-5" />
+                    </Button>
+                  )}
                   <AuthMenu />
                 </div>
               ) : (
                 <>
                   <div className="flex min-w-0 flex-1 justify-end px-2 sm:px-4 md:justify-center">
-                    <SearchBar compact />
+                    {!hideHeaderSearch && <SearchBar compact />}
                   </div>
                   <AuthMenu />
                 </>

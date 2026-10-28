@@ -12,18 +12,18 @@ import {
 } from '@/services/editalService';
 import { motion } from 'framer-motion';
 import { FileText, Folder, Loader2 } from 'lucide-react';
+import HomeFavorites from '@/components/home/HomeFavorites';
+import HomeHero from '@/components/home/HomeHero';
+import SectorShortcuts from '@/components/home/SectorShortcuts';
+import {
+  HOME_UPDATES_PAGE,
+  UPDATES_PERIOD_LABELS,
+  mapRecentToUpdates,
+  periodStart,
+  setorTagFromId,
+  type UpdatesPeriod,
+} from '@/lib/updates';
 import FilterToolbar, { SortOption } from '@/components/filters/FilterToolbar';
-
-const formatDatePt = (dateString?: string): string => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
-};
 
 const formatCardDate = (dateString?: string): { date: string; hour: string } => {
   if (!dateString) return { date: '', hour: '' };
@@ -67,6 +67,13 @@ const Index: React.FC<{
   const [featured, setFeatured] = useState<EditalItem[]>(initialFeatured || []);
   const [updates, setUpdates] = useState<Update[]>(initialUpdates || []);
   const [isLoading, setIsLoading] = useState(!initialFeatured);
+  const [updatesLimit, setUpdatesLimit] = useState(HOME_UPDATES_PAGE);
+  const [hasMoreUpdates, setHasMoreUpdates] = useState(
+    (initialUpdates?.length ?? 0) >= HOME_UPDATES_PAGE
+  );
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [period, setPeriod] = useState<UpdatesPeriod>('all');
+  const [updatesLoading, setUpdatesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -79,21 +86,14 @@ const Index: React.FC<{
       try {
         const [featuredItems, recentItems] = await Promise.all([
           fetchFeaturedEditais(3),
-          fetchRecentUpdates(6),
+          fetchRecentUpdates(HOME_UPDATES_PAGE),
         ]);
 
         if (cancelled) return;
 
         setFeatured(featuredItems);
-        setUpdates(
-          recentItems.map((item) => ({
-            id: item['@id'],
-            title: item.title || 'Sem título',
-            date: formatDatePt(item.modified || item.created),
-            description: item.type_title || item['@type'] || '',
-            href: toEditalHref(item['@id']),
-          }))
-        );
+        setUpdates(mapRecentToUpdates(recentItems));
+        setHasMoreUpdates(recentItems.length >= HOME_UPDATES_PAGE);
       } catch (err) {
         if (cancelled) return;
         console.error(err);
@@ -108,6 +108,39 @@ const Index: React.FC<{
       cancelled = true;
     };
   }, [initialFeatured]);
+
+  const handlePeriodChange = async (next: UpdatesPeriod) => {
+    setPeriod(next);
+    setUpdatesLoading(true);
+    document
+      .getElementById('atualizacoes')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    try {
+      const items = await fetchRecentUpdates(HOME_UPDATES_PAGE, periodStart(next));
+      setUpdates(mapRecentToUpdates(items));
+      setUpdatesLimit(HOME_UPDATES_PAGE);
+      setHasMoreUpdates(items.length >= HOME_UPDATES_PAGE);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUpdatesLoading(false);
+    }
+  };
+
+  const handleLoadMoreUpdates = async () => {
+    const nextLimit = updatesLimit + HOME_UPDATES_PAGE;
+    setLoadingMore(true);
+    try {
+      const items = await fetchRecentUpdates(nextLimit, periodStart(period));
+      setUpdates(mapRecentToUpdates(items));
+      setUpdatesLimit(nextLimit);
+      setHasMoreUpdates(items.length >= nextLimit);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const sortedEditals = useMemo(() => {
     return [...featured].sort((a, b) => {
@@ -133,14 +166,22 @@ const Index: React.FC<{
   }, [featured, sortOption]);
 
   return (
-    <MainLayout className="flex-1 overflow-hidden p-3 sm:p-4 md:p-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    <MainLayout hideHeaderSearch>
       <motion.div
         initial="hidden"
         animate="visible"
         variants={containerVariants}
-        className="mx-auto flex max-w-6xl flex-col gap-3 sm:gap-4 h-[calc(100dvh-3.5rem-1.5rem)] sm:h-[calc(100dvh-4rem-2rem)] md:h-[calc(100dvh-4rem-3rem)]"
+        className="mx-auto flex max-w-6xl flex-col gap-8"
       >
-        <motion.div variants={itemVariants} className="shrink-0">
+        <motion.div variants={itemVariants}>
+          <HomeHero activePeriod={period} onPeriodChange={handlePeriodChange} />
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <SectorShortcuts />
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 sm:mb-3">
             <h2 className="text-lg font-semibold text-gray-900 sm:text-xl">
               Editais em destaque
@@ -198,6 +239,7 @@ const Index: React.FC<{
                         date={date}
                         hour={hour}
                         state={edital}
+                        setor={setorTagFromId(edital['@id'])}
                       />
                     </motion.div>
                   );
@@ -215,8 +257,26 @@ const Index: React.FC<{
           )}
         </motion.div>
 
-        <motion.div variants={itemVariants} className="flex min-h-0 flex-1 flex-col">
-          <UpdatesSection updates={updates} isLoading={isLoading} compact />
+        <motion.div
+          variants={itemVariants}
+          className="flex flex-col gap-8 lg:flex-row lg:items-start"
+        >
+          <div className="min-w-0 lg:flex-1">
+            <UpdatesSection
+              updates={updates}
+              isLoading={isLoading || updatesLoading}
+              hasMore={hasMoreUpdates}
+              loadingMore={loadingMore}
+              onLoadMore={handleLoadMoreUpdates}
+              periodLabel={
+                period === 'all' ? undefined : UPDATES_PERIOD_LABELS[period]
+              }
+              onClearPeriod={() => handlePeriodChange('all')}
+            />
+          </div>
+          <div className="lg:w-80 lg:shrink-0">
+            <HomeFavorites />
+          </div>
         </motion.div>
       </motion.div>
     </MainLayout>
