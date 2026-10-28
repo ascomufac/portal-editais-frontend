@@ -26,13 +26,13 @@ import {
   Pencil,
   Scissors,
   Settings2,
-  Share2,
+  Link2,
   Trash2,
   X,
 } from 'lucide-react';
 import React from 'react';
 
-export type SortKey = 'position' | 'name' | 'modified' | 'type' | 'owner';
+export type SortKey = 'position' | 'name' | 'created' | 'modified' | 'type' | 'owner';
 
 type SelectionToolbarProps = {
   count: number;
@@ -219,9 +219,9 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
             size="icon"
             className={iconBtn}
             onClick={onShare}
-            title="Compartilhar"
+            title="Copiar link"
           >
-            <Share2 className="h-4 w-4" />
+            <Link2 className="h-4 w-4" />
           </Button>
         </>
       )}
@@ -293,6 +293,7 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
               [
                 ['position', 'Posição na pasta'],
                 ['name', 'Nome'],
+                ['created', 'Criação'],
                 ['modified', 'Modificação'],
                 ['type', 'Tipo'],
                 ['owner', 'Proprietário'],

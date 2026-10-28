@@ -1,3 +1,4 @@
+import { copyShareLink } from '@/components/admin/shareLink';
 import { Button } from '@/components/ui/button';
 import {
   adminDriveMenuContentClass,
@@ -37,7 +38,6 @@ import {
   Link2,
   MoreVertical,
   Pencil,
-  Share2,
 } from 'lucide-react';
 import React, { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -114,14 +114,7 @@ const useActionHandlers = (item: PloneContentItem): ActionHandlers => {
     [item, navigate]
   );
 
-  const onCopyLink = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(item['@id']);
-      toast.success('Link copiado.');
-    } catch {
-      toast.error('Não foi possível copiar o link.');
-    }
-  }, [item]);
+  const onCopyLink = useCallback(() => copyShareLink(item), [item]);
 
   const onDownload = useCallback(async () => {
     try {
@@ -177,13 +170,16 @@ const ActionItems: React.FC<
           Visualizar
         </Item>
       )}
+      {downloadable && (
+        <Item className={adminDriveMenuItemClass} onClick={() => void onDownload()}>
+          <Download className={adminDriveMenuIconClass} />
+          Fazer download
+        </Item>
+      )}
+      <Separator className={adminDriveMenuSeparatorClass} />
       <Item className={adminDriveMenuItemClass} onClick={() => onAction('edit')}>
         <Pencil className={adminDriveMenuIconClass} />
         Editar
-      </Item>
-      <Item className={adminDriveMenuItemClass} onClick={() => onAction('share')}>
-        <Share2 className={adminDriveMenuIconClass} />
-        Compartilhar
       </Item>
       <Item className={adminDriveMenuItemClass} onClick={() => onAction('history')}>
         <History className={adminDriveMenuIconClass} />
@@ -194,12 +190,6 @@ const ActionItems: React.FC<
         <Link2 className={adminDriveMenuIconClass} />
         Copiar link
       </Item>
-      {downloadable && (
-        <Item className={adminDriveMenuItemClass} onClick={() => void onDownload()}>
-          <Download className={adminDriveMenuIconClass} />
-          Fazer download
-        </Item>
-      )}
     </>
   );
 };
