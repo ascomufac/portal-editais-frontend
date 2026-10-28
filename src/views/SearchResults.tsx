@@ -64,7 +64,7 @@ const SECTION_OPTIONS: Array<{
 }> = [
   { value: 'all', label: 'Todos' },
   { value: 'graduacao', label: 'Graduação' },
-  { value: 'pos-graduacao', label: 'Pesquisa e Pós-graduação' },
+  { value: 'pos-graduacao', label: 'Pesquisa, Pós-graduação e Inovação' },
   { value: 'extensao', label: 'Extensão e Cultura' },
   { value: 'estudantis', label: 'Assuntos Estudantis' },
   { value: 'pessoas', label: 'Gestão de Pessoas' },

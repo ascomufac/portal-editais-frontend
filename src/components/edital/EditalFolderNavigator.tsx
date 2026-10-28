@@ -236,14 +236,14 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 			);
 		}
 
-		const folderItems = items.filter(isFolderItem);
-		const fileItems = items
-			.filter((item) => !isFolderItem(item))
-			.sort((a, b) => {
-				const dateA = getDocumentTimelineDate(a)?.getTime() ?? 0;
-				const dateB = getDocumentTimelineDate(b)?.getTime() ?? 0;
-				return newestFirst ? dateB - dateA : dateA - dateB;
-			});
+		const byCreated = (a: EditalDocumentType, b: EditalDocumentType) => {
+			const dateA = getDocumentTimelineDate(a)?.getTime() ?? 0;
+			const dateB = getDocumentTimelineDate(b)?.getTime() ?? 0;
+			return newestFirst ? dateB - dateA : dateA - dateB;
+		};
+
+		const folderItems = items.filter(isFolderItem).sort(byCreated);
+		const fileItems = items.filter((item) => !isFolderItem(item)).sort(byCreated);
 
 		return { folders: folderItems, files: fileItems };
 	}, [currentItems, itemTypeFilter, newestFirst]);
@@ -526,7 +526,10 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 											</span>
 										) : null;
 									})()}
-									<span className="line-clamp-3 text-base font-semibold leading-snug text-slate-900 sm:text-lg">
+									<span
+										className="line-clamp-3 text-base font-semibold leading-snug text-slate-900 sm:text-lg"
+										title={latestFile.title}
+									>
 										{latestFile.title}
 									</span>
 									{latestFile.description ? (
@@ -576,7 +579,10 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 										<Folder className="h-5 w-5" />
 									</span>
 									<span className="min-w-0 flex-1">
-										<span className="line-clamp-2 text-sm font-medium text-slate-800">
+										<span
+											className="line-clamp-2 text-sm font-medium text-slate-800"
+											title={item.title}
+										>
 											{item.title}
 										</span>
 										<span className="mt-0.5 block text-xs text-slate-400">
@@ -740,7 +746,10 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 																/>
 															</span>
 															<span className="min-w-0 flex-1">
-																<span className="line-clamp-3 text-sm font-semibold leading-snug text-slate-900 sm:text-base">
+																<span
+																	className="line-clamp-3 text-sm font-semibold leading-snug text-slate-900 sm:text-base"
+																	title={item.title}
+																>
 																	{item.title}
 																</span>
 																{item.description ? (

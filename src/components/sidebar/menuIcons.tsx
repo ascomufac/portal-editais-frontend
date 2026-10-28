@@ -9,7 +9,7 @@ import {
   PesquisaIcon,
   ProReitoriasIcon,
 } from '@/components/sidebar/SidebarIcons';
-import { Building, Folder } from 'lucide-react';
+import { Building, Folder, University } from 'lucide-react';
 import { toPlonePath } from '@/services/ploneContentService';
 import React from 'react';
 
@@ -32,6 +32,7 @@ const ID_ALIASES: Record<string, string> = {
   prograd: 'prograd',
   graduacao: 'prograd',
   propeg: 'propeg',
+  proppi: 'propeg',
   'pos-graduacao': 'propeg',
   proex: 'proex',
   extensao: 'proex',
@@ -45,6 +46,7 @@ const ID_ALIASES: Record<string, string> = {
   colegio: 'colegio-de-aplicacao',
   cap: 'colegio-de-aplicacao',
   proplan: 'proplan',
+  centros: 'centros',
 };
 
 const TITLE_TO_KEY: Record<string, string> = {
@@ -53,7 +55,10 @@ const TITLE_TO_KEY: Record<string, string> = {
   Graduação: 'prograd',
   Prograd: 'prograd',
   'Pesquisa e Pós-graduação': 'propeg',
+  'Pesquisa, Pós-graduação e Inovação': 'propeg',
   Propeg: 'propeg',
+  Proppi: 'proppi',
+  'Proppi (Propeg)': 'propeg',
   'Extensão e Cultura': 'proex',
   Proex: 'proex',
   'Assuntos Estudantis': 'proaes',
@@ -63,12 +68,14 @@ const TITLE_TO_KEY: Record<string, string> = {
   'Centro de Idiomas': 'centro-idiomas',
   'Colégio de Aplicação': 'colegio-de-aplicacao',
   Proplan: 'proplan',
+  'Centros de Ensino': 'centros',
 };
 
 /** Setores herdáveis por path (badge em pastas/arquivos descendentes). */
 const INHERITABLE_SECTOR_KEYS = new Set([
   'prograd',
   'propeg',
+  'proppi',
   'proex',
   'proaes',
   'prodgep',
@@ -83,12 +90,14 @@ const iconsForKey = (key: string): React.ReactNode | null => {
     'pro-reitorias': <ProReitoriasIcon />,
     prograd: <GraduacaoIcon />,
     propeg: <PesquisaIcon />,
+    proppi: <PesquisaIcon />,
     proex: <ExtensaoIcon />,
     proaes: <AssuntosEstudantisIcon />,
     prodgep: <GestaoPessoasIcon />,
     'centro-idiomas': <CentroIdiomasIcon />,
     'colegio-de-aplicacao': <ColegioAplicacaoIcon />,
     proplan: <Building className="h-full w-full text-ufac-blue" strokeWidth={2} />,
+    centros: <University className="h-full w-full text-ufac-blue" strokeWidth={2} />,
   };
   return map[key] ?? null;
 };

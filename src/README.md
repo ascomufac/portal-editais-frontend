@@ -31,7 +31,7 @@ Este é um portal de visualização e busca de documentos da Universidade Federa
 O portal organiza os documentos nas seguintes categorias:
 
 - Graduação (Prograd)
-- Pesquisa e Pós-graduação (Propeg)
+- Pesquisa, Pós-graduação e Inovação (Proppi; a pasta no Plone ainda é `propeg`)
 - Extensão e Cultura (Proex)
 - Assuntos Estudantis (Proaes)
 - Gestão de Pessoas (Prodgep)
