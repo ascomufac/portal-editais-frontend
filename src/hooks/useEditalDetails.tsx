@@ -1,31 +1,65 @@
 import { useToast } from '@/components/ui/use-toast';
 import { EditalDocumentType, EditalType } from '@/types/edital';
 import { apiFetch } from '@/services/apiClient';
+import { getAccessToken } from '@/services/authService';
+import { SITE_URL, toEditalHref, toSitePath } from '@/services/editalService';
 import {
-  SITE_URL,
-  rewritePloneHtmlLinks,
-  toEditalHref,
-  toSitePath,
-} from '@/services/editalService';
+  editalContentQuery,
+  normalizeEditalPath,
+  parseEditalBreadcrumbs,
+  parseEditalContent,
+  type EditalBreadcrumb,
+  type EditalInfo,
+  type EditalPageData,
+} from '@/lib/edital-content';
 import { FileText, Folder } from 'lucide-react';
-import { createElement, useEffect, useState } from 'react';
+import { createElement, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
-export function useEditalDetails(editalId: string | undefined) {
+const toEdital = (info: EditalInfo, pathname: string): EditalType => ({
+  ...info,
+  color: 'bg-blue-50',
+  icon: createElement(
+    info['@type'] === 'Folder' || info['@type'] === 'Collection' || info.is_folderish
+      ? Folder
+      : FileText,
+    { className: 'h-8 w-8 text-ufac-blue' }
+  ),
+  section: pathname.split('/')[1] || '',
+});
+
+/**
+ * @param initial conteúdo já carregado no servidor; usado na primeira renderização
+ * quando corresponde ao edital da URL.
+ */
+export function useEditalDetails(editalId: string | undefined, initial?: EditalPageData) {
   const pathname = usePathname();
   const router = useRouter();
-  const [edital, setEdital] = useState<EditalType | null>(null);
-  const [documents, setDocuments] = useState<EditalDocumentType[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const initialData =
+    initial &&
+    !initial.content.remoteUrl &&
+    editalId &&
+    normalizeEditalPath(editalId) === initial.path
+      ? initial
+      : undefined;
+  const [edital, setEdital] = useState<EditalType | null>(() =>
+    initialData ? toEdital(initialData.content.edital, pathname) : null
+  );
+  const [documents, setDocuments] = useState<EditalDocumentType[]>(
+    () => initialData?.content.documents ?? []
+  );
+  const [isLoading, setIsLoading] = useState(!initialData);
   const [error, setError] = useState<Error | null>(null);
   const [currentPath, setCurrentPath] = useState<string[]>([]);
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
-  const [breadcrumbItems, setBreadcrumbItems] = useState<Array<{ id: string; title: string }>>(
-    []
+  const [breadcrumbItems, setBreadcrumbItems] = useState<EditalBreadcrumb[]>(
+    () => initialData?.breadcrumbs ?? []
   );
+  // Conteúdo do servidor dispensa a primeira busca (exceto logado: pode ver itens privados).
+  const skipFirstFetch = useRef(Boolean(initialData));
   const { toast } = useToast();
 
-  const fetchBreadcrumbs = async (path: string) => {
+  const fetchBreadcrumbs = async (path: string): Promise<EditalBreadcrumb[]> => {
     try {
       const normalizedPath = path.replace(/^\/+|\/+$/g, '').replace(`${SITE_URL}/`, '');
       const endpoint = `/${normalizedPath}/@breadcrumbs`;
@@ -36,16 +70,7 @@ export function useEditalDetails(editalId: string | undefined) {
         return [];
       }
 
-      const data = await response.json();
-
-      if (data && Array.isArray(data.items)) {
-        return data.items.map((item: { '@id'?: string; title?: string }) => ({
-          id: item['@id'] || '',
-          title: item.title || '',
-        }));
-      }
-
-      return [];
+      return parseEditalBreadcrumbs(await response.json());
     } catch (err) {
       console.error('Error fetching breadcrumbs:', err);
       return [];
@@ -59,108 +84,28 @@ export function useEditalDetails(editalId: string | undefined) {
     setError(null);
 
     try {
-      const searchParams = new URLSearchParams();
-      searchParams.append('b_start', '0');
-      searchParams.append('b_size', '100');
-      searchParams.append('sort_on', 'created');
-      searchParams.append('sort_order', 'descending');
-      searchParams.append('metadata_fields:list', 'created');
-      searchParams.append('metadata_fields:list', 'modified');
-      searchParams.append('metadata_fields:list', 'Creator');
-      searchParams.append('metadata_fields:list', 'items_total');
-      searchParams.append('metadata_fields:list', 'item_count');
-      // Não pedir `effective`: no Plone costuma vir 1969-12-31 quando não preenchido.
-
       const normalizedEditalId = toSitePath(_editalId);
-      const endpoint = `/${normalizedEditalId}?${searchParams.toString()}`;
+      const endpoint = `/${normalizedEditalId}?${editalContentQuery()}`;
       const response = await apiFetch(endpoint);
 
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const content = parseEditalContent(await response.json(), folderParent);
 
       // Links do Plone: seguir remoteUrl interno
-      if (data['@type'] === 'Link' && data.remoteUrl) {
-        if (String(data.remoteUrl).includes('www3.ufac.br')) {
-          const target = toEditalHref(data.remoteUrl);
-          router.replace(target);
+      if (content.remoteUrl) {
+        if (content.remoteUrl.includes('www3.ufac.br')) {
+          router.replace(toEditalHref(content.remoteUrl));
           return;
         }
-        window.location.href = data.remoteUrl;
+        window.location.href = content.remoteUrl;
         return;
       }
 
-      const sanitizeDate = (value: unknown): string => {
-        if (value == null || value === '' || value === 'None') return '';
-        const raw = String(value);
-        const time = Date.parse(raw);
-        if (!Number.isFinite(time)) return '';
-        // Plone usa ~1969-12-31 quando "Data de publicação" (effective) não foi definida
-        if (new Date(time).getUTCFullYear() < 1990) return '';
-        return raw;
-      };
-
-      const rawHtml =
-        typeof data.text === 'object' && data.text?.data
-          ? String(data.text.data)
-          : typeof data.text === 'string'
-            ? data.text
-            : '';
-
-      const isFolder =
-        data['@type'] === 'Folder' ||
-        data['@type'] === 'Collection' ||
-        Boolean(data.is_folderish);
-
-      setEdital({
-        id: data.id || data.UID || '',
-        title: data.title || '',
-        description: data.description || '',
-        color: 'bg-blue-50',
-        icon: createElement(isFolder ? Folder : FileText, {
-          className: 'h-8 w-8 text-ufac-blue',
-        }),
-        href: data['@id'] || '',
-        modified: sanitizeDate(data.modified),
-        effective: sanitizeDate(data.effective),
-        author: data.Creator || data.creators?.[0] || '',
-        section: pathname.split('/')[1] || '',
-        '@type': data['@type'],
-        is_folderish: data.is_folderish,
-        items_total: data.items_total,
-        htmlContent: rawHtml ? rewritePloneHtmlLinks(rawHtml) : undefined,
-      });
-
-      if (data.items && Array.isArray(data.items)) {
-        const processedItems = data.items.map(
-          (item: Record<string, unknown> & { '@id'?: string; '@type'?: string }) => ({
-            id: String(item.id || item.UID || item['@id'] || ''),
-            '@id': item['@id'] || '',
-            '@type': item['@type'] || '',
-            title: String(item.title || ''),
-            description: String(item.description || ''),
-            author: String(item.Creator || item.author || ''),
-            Creator: String(item.Creator || item.author || ''),
-            type: String(item['@type'] || 'Document'),
-            lastModified: sanitizeDate(item.modified),
-            modified: sanitizeDate(item.modified),
-            created: sanitizeDate(item.created),
-            effective: '',
-            url: String(item['@id'] || ''),
-            isFolder:
-              item['@type'] === 'Folder' ||
-              item['@type'] === 'Collection' ||
-              Boolean(item.is_folderish),
-            parentId: folderParent,
-          })
-        );
-
-        setDocuments(processedItems);
-      } else {
-        setDocuments([]);
-      }
+      setEdital(toEdital(content.edital, pathname));
+      setDocuments(content.documents);
 
       const breadcrumbs = await fetchBreadcrumbs(normalizedEditalId);
       if (breadcrumbs.length > 0) {
@@ -183,6 +128,10 @@ export function useEditalDetails(editalId: string | undefined) {
   };
 
   useEffect(() => {
+    if (skipFirstFetch.current) {
+      skipFirstFetch.current = false;
+      if (!getAccessToken()) return;
+    }
     if (editalId) {
       fetchData(editalId);
     }

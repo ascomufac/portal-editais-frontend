@@ -10,7 +10,7 @@ import type { EditalItem } from '@/services/editalService';
 import type { Update } from '@/components/UpdatesSection';
 import type { Metadata } from 'next';
 
-export const revalidate = 86400; // 1 dia
+export const revalidate = 300; // 5 min: últimas atualizações
 
 export const metadata: Metadata = buildMetadata({
   title: null,

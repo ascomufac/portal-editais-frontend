@@ -506,16 +506,47 @@ export const getActions = async (path = ''): Promise<PloneActionsMap> => {
   }
 };
 
+const pendingRevalidation = new Set<string>();
+let revalidationTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Avisa o portal para limpar o cache das páginas públicas afetadas
+ * (pasta, pastas acima e últimas atualizações). Agrupa alterações seguidas
+ * (ex.: fila de upload) e nunca bloqueia nem quebra a ação do admin.
+ */
+const notifyContentChanged = (...paths: string[]) => {
+  if (typeof window === 'undefined') return;
+  paths.map(toPlonePath).filter(Boolean).forEach((p) => pendingRevalidation.add(p));
+  if (revalidationTimer) clearTimeout(revalidationTimer);
+  revalidationTimer = setTimeout(() => {
+    revalidationTimer = null;
+    const token = getAccessToken();
+    const batch = Array.from(pendingRevalidation);
+    pendingRevalidation.clear();
+    if (!token || batch.length === 0) return;
+    fetch('/api/revalidate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ paths: batch }),
+      keepalive: true,
+    }).catch(() => {
+      // sem invalidação: o cache curto (5 min) atualiza sozinho
+    });
+  }, 1500);
+};
+
 export const createContent = async (
   parentPath: string,
   payload: CreateContentPayload
 ): Promise<PloneContentItem> => {
   const base = pathToApiEndpoint(parentPath) || '/';
-  return apiRequest<PloneContentItem>(base, {
+  const created = await apiRequest<PloneContentItem>(base, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+  notifyContentChanged(parentPath);
+  return created;
 };
 
 export const updateContent = async (
@@ -523,16 +554,19 @@ export const updateContent = async (
   payload: UpdateContentPayload
 ): Promise<PloneContentItem> => {
   const base = pathToApiEndpoint(path) || '/';
-  return apiRequest<PloneContentItem>(base, {
+  const updated = await apiRequest<PloneContentItem>(base, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+  notifyContentChanged(path);
+  return updated;
 };
 
 export const deleteContent = async (path: string): Promise<void> => {
   const base = pathToApiEndpoint(path) || '/';
   await apiRequest(base, { method: 'DELETE' });
+  notifyContentChanged(path);
 };
 
 export const getWorkflow = async (path: string): Promise<PloneWorkflowInfo> => {
@@ -676,7 +710,7 @@ export const transitionWorkflow = async (
   transition: string,
   comment?: string
 ): Promise<PloneWorkflowInfo> => {
-  return apiRequest<PloneWorkflowInfo>(
+  const info = await apiRequest<PloneWorkflowInfo>(
     withService(path, `@workflow/${encodeURIComponent(transition)}`),
     {
       method: 'POST',
@@ -684,6 +718,8 @@ export const transitionWorkflow = async (
       body: JSON.stringify(comment ? { comment } : {}),
     }
   );
+  notifyContentChanged(path);
+  return info;
 };
 
 export const getSharing = async (path: string): Promise<PloneSharingResponse> => {
@@ -715,6 +751,7 @@ export const moveContent = async (
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ source: sourceUrl }),
   });
+  notifyContentChanged(sourcePath, targetFolderPath);
 };
 
 export const copyContent = async (
@@ -727,6 +764,7 @@ export const copyContent = async (
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ source: sourceUrl }),
   });
+  notifyContentChanged(targetFolderPath);
 };
 
 /**
@@ -751,6 +789,7 @@ export const reorderFolderItem = async (
       },
     }),
   });
+  notifyContentChanged(folderPath);
 };
 
 export const renameContent = async (path: string, newId: string): Promise<PloneContentItem> => {
@@ -900,6 +939,7 @@ export const uploadFile = async (
     xhr.send(body);
   });
 
+  notifyContentChanged(parentPath);
   return created;
 };
 

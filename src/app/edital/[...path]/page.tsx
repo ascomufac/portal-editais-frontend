@@ -1,11 +1,17 @@
 import EditalDetail from '@/views/EditalDetail';
 import { breadcrumbJsonLd, editalJsonLd, truncateDescription } from '@/lib/seo';
 import { buildMetadata, JsonLdScript } from '@/lib/seo-next';
-import { getEditalMeta } from '@/lib/plone-public';
+import { getEditalPage } from '@/lib/plone-public';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-export const revalidate = 86400; // 1 dia
+// 5 min de segurança: uploads pelo admin já invalidam na hora (/api/revalidate).
+export const revalidate = 300;
+
+/** Nenhuma pasta no build: cada uma é gerada no 1º acesso e fica em cache (ISR). */
+export function generateStaticParams() {
+  return [];
+}
 
 type Props = {
   params: Promise<{ path: string[] }>;
@@ -13,7 +19,7 @@ type Props = {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { path } = await params;
-  const meta = await getEditalMeta(path);
+  const meta = (await getEditalPage(path))?.meta;
   const href = `/edital/${path.map(encodeURIComponent).join('/')}`;
   if (!meta) {
     return buildMetadata({
@@ -34,7 +40,8 @@ export default async function EditalRoute({ params }: Props) {
   const { path } = await params;
   if (!path?.length) notFound();
 
-  const meta = await getEditalMeta(path);
+  const data = await getEditalPage(path);
+  const meta = data?.meta;
   const href = `/edital/${path.map(encodeURIComponent).join('/')}`;
   const title = meta?.title || 'Edital';
 
@@ -57,7 +64,7 @@ export default async function EditalRoute({ params }: Props) {
           { name: title, path: href },
         ])}
       />
-      <EditalDetail />
+      <EditalDetail initial={data?.page} />
     </>
   );
 }

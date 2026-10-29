@@ -3,8 +3,8 @@
  * @module editalService
  */
 
-import { apiRequest } from '@/services/apiClient';
-import { BASE_URL, SITE_URL } from '@/services/ploneConfig';
+import { apiRequest, type ApiFetchOptions } from '@/services/apiClient';
+import { BASE_URL, SITE_URL, getRevalidateSeconds } from '@/services/ploneConfig';
 
 export { BASE_URL, SITE_URL };
 
@@ -373,8 +373,8 @@ export interface SearchParams {
    */
   dateFilter?: {
     field: 'created' | 'modified' | 'effective';
-    from?: string; // YYYY-MM-DD
-    to?: string;   // YYYY-MM-DD
+    from?: string; // YYYY-MM-DD (dia no fuso do Acre)
+    to?: string;   // YYYY-MM-DD (dia no fuso do Acre)
   };
 }
 
@@ -392,17 +392,29 @@ export const appendDateRangeParams = (
   const hasTo = Boolean(to?.trim());
   if (!hasFrom && !hasTo) return;
 
+  const fromQuery = hasFrom ? toAcreBoundary(from!.trim(), 'start') : '';
+  const toQuery = hasTo ? toAcreBoundary(to!.trim(), 'end') : '';
+
   if (hasFrom && hasTo) {
-    searchParams.append(`${field}.query`, from!.trim());
-    searchParams.append(`${field}.query`, to!.trim());
+    searchParams.append(`${field}.query`, fromQuery);
+    searchParams.append(`${field}.query`, toQuery);
     searchParams.append(`${field}.range`, 'min:max');
   } else if (hasFrom) {
-    searchParams.append(`${field}.query`, from!.trim());
+    searchParams.append(`${field}.query`, fromQuery);
     searchParams.append(`${field}.range`, 'min');
   } else {
-    searchParams.append(`${field}.query`, to!.trim());
+    searchParams.append(`${field}.query`, toQuery);
     searchParams.append(`${field}.range`, 'max');
   }
+};
+
+/**
+ * Data sem hora o Plone lê como meia-noite UTC (19h do dia anterior no Acre).
+ * Fixa o início/fim do dia no fuso do Acre (UTC-5, sem horário de verão).
+ */
+const toAcreBoundary = (date: string, edge: 'start' | 'end'): string => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+  return `${date}T${edge === 'start' ? '00:00:00' : '23:59:59'}-05:00`;
 };
 
 const buildSearchParams = (params: SearchParams = {}): URLSearchParams => {
@@ -631,7 +643,16 @@ export const searchSetorItems = async (
 /**
  * Busca global no Plone
  */
-export const searchSite = async (params: SearchParams = {}): Promise<EditalResponse> => {
+/** Cache (s) das listas de últimas atualizações: curto para arquivos novos aparecerem logo. */
+export const RECENT_REVALIDATE_SECONDS = 300;
+
+/** Tag de cache das buscas de últimas atualizações (home e feeds). */
+export const RECENT_UPDATES_TAG = 'recent-updates';
+
+export const searchSite = async (
+  params: SearchParams = {},
+  options: ApiFetchOptions = {}
+): Promise<EditalResponse> => {
   const query = buildSearchParams({
     b_start: 0,
     b_size: 20,
@@ -640,7 +661,7 @@ export const searchSite = async (params: SearchParams = {}): Promise<EditalRespo
     ...params,
   });
 
-  return apiRequest<EditalResponse>(`/@search?${query.toString()}`);
+  return apiRequest<EditalResponse>(`/@search?${query.toString()}`, options);
 };
 
 /**
@@ -653,7 +674,7 @@ export const fetchFeaturedEditais = async (limit = 6): Promise<EditalItem[]> => 
     b_size: limit,
     sort_on: 'created',
     sort_order: 'descending',
-  });
+  }, { next: { revalidate: getRevalidateSeconds(), tags: [RECENT_UPDATES_TAG] } });
 
   return data.items ?? [];
 };
@@ -701,7 +722,7 @@ export const fetchRecentUpdates = async (
     ...(modifiedFrom
       ? { dateFilter: { field: 'modified' as const, from: modifiedFrom } }
       : {}),
-  });
+  }, { next: { revalidate: RECENT_REVALIDATE_SECONDS, tags: [RECENT_UPDATES_TAG] } });
 
   return attachParentTitles(data.items ?? []);
 };
