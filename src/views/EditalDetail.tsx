@@ -7,6 +7,7 @@ import MainLayout from '@/layouts/MainLayout';
 import EditalFolderNavigator from '@/components/edital/EditalFolderNavigator';
 import EditalTitleSkeleton from '@/components/edital/EditalTitleSkeleton';
 import { formatDate } from '@/lib/utils';
+import type { EditalPageData } from '@/lib/edital-content';
 
 /**
  * Extrai o caminho Plone completo a partir de /edital/...
@@ -18,7 +19,7 @@ const getEditalPathFromLocation = (pathname: string): string | undefined => {
   return decodeURIComponent(match[1].replace(/\/+$/, ''));
 };
 
-const EditalDetail: React.FC = () => {
+const EditalDetail: React.FC<{ initial?: EditalPageData }> = ({ initial }) => {
   const pathname = usePathname();
   const fullEditalPath = getEditalPathFromLocation(pathname);
 
@@ -33,7 +34,7 @@ const EditalDetail: React.FC = () => {
     navigateUp,
     navigateToSpecificBreadcrumb,
     getCurrentFolderContents,
-  } = useEditalDetails(fullEditalPath);
+  } = useEditalDetails(fullEditalPath, initial);
 
   useEffect(() => {
     if (edital) {

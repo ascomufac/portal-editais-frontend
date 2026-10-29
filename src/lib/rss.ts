@@ -1,4 +1,6 @@
 import {
+  RECENT_REVALIDATE_SECONDS,
+  RECENT_UPDATES_TAG,
   searchSite,
   toItemHref,
   toSitePath,
@@ -29,7 +31,7 @@ export const fetchFeedItems = async (setorId?: string): Promise<EditalItem[]> =>
     b_size: FEED_SIZE,
     sort_on: 'modified',
     sort_order: 'descending',
-  });
+  }, { next: { revalidate: RECENT_REVALIDATE_SECONDS, tags: [RECENT_UPDATES_TAG] } });
   // A pasta do próprio setor também entra na busca; fica fora do feed.
   return (data.items ?? []).filter(
     (item) => !setorId || toSitePath(item['@id']) !== setorId

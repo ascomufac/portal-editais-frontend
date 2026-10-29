@@ -5,10 +5,18 @@ export { mapRecentToUpdates };
 import {
   fetchFeaturedEditais,
   fetchRecentUpdates,
+  RECENT_REVALIDATE_SECONDS,
   setorTitles,
-  toSitePath,
   type EditalItem,
 } from '@/services/editalService';
+import {
+  editalCacheTag,
+  editalContentQuery,
+  normalizeEditalPath,
+  parseEditalBreadcrumbs,
+  parseEditalContent,
+  type EditalPageData,
+} from '@/lib/edital-content';
 
 export type PloneContentMeta = {
   title?: string;
@@ -28,15 +36,34 @@ export async function getHomeData() {
   return { featured, recent };
 }
 
-export async function getEditalMeta(
+/**
+ * Conteúdo da pasta/item para a página do edital (metadados + listagem inicial).
+ * Cache curto e com tag: o admin invalida em `/api/revalidate` ao alterar a pasta.
+ */
+export async function getEditalPage(
   pathSegments: string[]
-): Promise<PloneContentMeta | null> {
-  const path = pathSegments.map(decodeURIComponent).join('/');
+): Promise<{ meta: PloneContentMeta; page: EditalPageData } | null> {
+  const path = normalizeEditalPath(pathSegments.map(decodeURIComponent).join('/'));
   if (!path) return null;
+  const next = { revalidate: RECENT_REVALIDATE_SECONDS, tags: [editalCacheTag(path)] };
   try {
-    return await apiRequest<PloneContentMeta>(`/${toSitePath(path)}`, {
-      auth: false,
-    });
+    const [meta, breadcrumbs] = await Promise.all([
+      apiRequest<PloneContentMeta>(`/${path}?${editalContentQuery()}`, {
+        auth: false,
+        next,
+      }),
+      apiRequest<unknown>(`/${path}/@breadcrumbs`, { auth: false, next }).catch(
+        () => null
+      ),
+    ]);
+    return {
+      meta,
+      page: {
+        path,
+        content: parseEditalContent(meta),
+        breadcrumbs: parseEditalBreadcrumbs(breadcrumbs),
+      },
+    };
   } catch {
     return null;
   }
