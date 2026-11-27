@@ -95,7 +95,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
     const active = !isExternal && isItemActive(item);
     const Icon = leafIconFor(item, isExternal);
     const titleClass = cn(
-      'min-w-0 flex-1 rounded-md px-1 py-1.5 text-sm line-clamp-2',
+      'min-w-0 flex-1 rounded-md px-1 py-1.5 text-sm',
       active ? 'font-medium text-ufac-blue' : 'text-gray-700 hover:text-ufac-blue'
     );
 
@@ -126,7 +126,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
             title={item.title}
             className={titleClass}
           >
-            {item.title}
+            <span className="line-clamp-2">{item.title}</span>
           </a>
         ) : (
           <Link
@@ -135,7 +135,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
             title={item.title}
             className={titleClass}
           >
-            {item.title}
+            <span className="line-clamp-2">{item.title}</span>
           </Link>
         )}
       </div>
@@ -198,13 +198,13 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
               onClick={handleDirectLinkClick}
               title={item.title}
               className={cn(
-                'min-w-0 flex-1 rounded-md px-1 py-1.5 text-sm font-medium line-clamp-2',
+                'min-w-0 flex-1 rounded-md px-1 py-1.5 text-sm font-medium',
                 active
                   ? 'text-ufac-blue'
                   : 'text-gray-700 hover:bg-gray-50 hover:text-ufac-blue'
               )}
             >
-              {item.title}
+              <span className="line-clamp-2">{item.title}</span>
             </Link>
           )}
         </div>
