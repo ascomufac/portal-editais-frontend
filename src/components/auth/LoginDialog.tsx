@@ -1,5 +1,4 @@
 import { useAuth, AuthError } from '@/contexts/AuthContext';
-import { requestPasswordReset } from '@/services/authService';
 import UfacEditaisLogo from '@/components/brand/UfacEditaisLogo';
 import {
   Dialog,
@@ -12,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Info, Loader2, Mail } from 'lucide-react';
 
 type LoginDialogProps = {
   open: boolean;
@@ -21,6 +20,35 @@ type LoginDialogProps = {
 };
 
 type Mode = 'login' | 'reset';
+
+/** Contato da Ascom, que cuida das contas do portal. */
+const ASCOM_EMAIL = 'ascom@ufac.br';
+
+const buildResetMailto = (username: string) => {
+  const subject = 'Redefinição de senha – Portal de Editais';
+  const body = [
+    'Olá, Ascom.',
+    '',
+    'Solicito a redefinição da minha senha de acesso ao Portal de Editais.',
+    '',
+    `Usuário: ${username.trim() || '(informe seu usuário)'}`,
+    'Nome completo:',
+    'Setor/unidade:',
+  ].join('\n');
+  return `mailto:${ASCOM_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+};
+
+/** Aviso para candidatos, que costumam chegar aqui por engano. */
+const CandidateNotice: React.FC = () => (
+  <div className="flex gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[13px] leading-relaxed text-amber-900">
+    <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+    <p>
+      <strong>É candidato?</strong> Você não precisa de cadastro aqui. As
+      orientações de inscrição e de acesso aos sistemas de seleção estão em
+      cada edital.
+    </p>
+  </div>
+);
 
 const LoginDialog: React.FC<LoginDialogProps> = ({
   open,
@@ -33,7 +61,6 @@ const LoginDialog: React.FC<LoginDialogProps> = ({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -42,7 +69,6 @@ const LoginDialog: React.FC<LoginDialogProps> = ({
       setPassword('');
       setShowPassword(false);
       setError(null);
-      setSuccess(null);
       setSubmitting(false);
     }
   }, [open]);
@@ -50,7 +76,6 @@ const LoginDialog: React.FC<LoginDialogProps> = ({
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
-    setSuccess(null);
     setSubmitting(true);
     try {
       await login(username, password);
@@ -62,27 +87,6 @@ const LoginDialog: React.FC<LoginDialogProps> = ({
         err instanceof AuthError
           ? err.message
           : 'Não foi possível autenticar. Tente novamente.';
-      setError(message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleReset = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError(null);
-    setSuccess(null);
-    setSubmitting(true);
-    try {
-      await requestPasswordReset(username);
-      setSuccess(
-        'Se a conta existir e permitir redefinição, enviamos instruções para o e-mail cadastrado.'
-      );
-    } catch (err) {
-      const message =
-        err instanceof AuthError
-          ? err.message
-          : 'Não foi possível solicitar a redefinição de senha.';
       setError(message);
     } finally {
       setSubmitting(false);
@@ -105,12 +109,12 @@ const LoginDialog: React.FC<LoginDialogProps> = ({
         <div className="space-y-5 px-6 pb-6 pt-5 sm:px-8 sm:pb-8 sm:pt-6">
           <DialogHeader className="space-y-1.5 text-left">
             <DialogTitle className="text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">
-              {mode === 'login' ? 'Acessar' : 'Redefinir senha'}
+              {mode === 'login' ? 'Acesso de servidores' : 'Redefinir senha'}
             </DialogTitle>
             <DialogDescription className="text-[13px] leading-relaxed text-slate-500 sm:text-sm">
               {mode === 'login'
-                ? 'Entre com sua conta do portal UFAC (mesmo usuário do Ufac).'
-                : 'Informe o usuário. O Ufac enviará um e-mail com o link para criar uma nova senha.'}
+                ? 'Área exclusiva para servidores da Ufac que publicam editais no portal.'
+                : 'A redefinição de senha das contas do portal é feita pela Ascom.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -171,17 +175,18 @@ const LoginDialog: React.FC<LoginDialogProps> = ({
                 </p>
               )}
 
+              <CandidateNotice />
+
               <div className="flex items-center justify-between gap-3 pt-1">
                 <button
                   type="button"
                   className="text-sm text-ufac-blue hover:underline"
                   onClick={() => {
                     setError(null);
-                    setSuccess(null);
                     setMode('reset');
                   }}
                 >
-                  Problemas ao fazer login?
+                  Esqueci minha senha
                 </button>
                 <Button type="submit" className="bg-ufac-blue" disabled={submitting}>
                   {submitting ? (
@@ -196,62 +201,46 @@ const LoginDialog: React.FC<LoginDialogProps> = ({
               </div>
             </form>
           ) : (
-            <form onSubmit={handleReset} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="reset-username">
-                  Nome do usuário <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="reset-username"
-                  autoComplete="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                  disabled={submitting || Boolean(success)}
-                  autoFocus
-                  className="h-11 text-base md:text-base"
-                />
+            <div className="space-y-4">
+              <div className="space-y-2 text-sm leading-relaxed text-slate-700">
+                <p>
+                  Envie um e-mail para{' '}
+                  <a
+                    href={`mailto:${ASCOM_EMAIL}`}
+                    className="font-semibold text-ufac-blue hover:underline"
+                  >
+                    {ASCOM_EMAIL}
+                  </a>{' '}
+                  informando o seu <strong>nome de usuário</strong>. Retornaremos o
+                  contato.
+                </p>
+                <p className="text-[13px] text-slate-500">
+                  Este cadastro é apenas para servidores da Ufac.
+                </p>
               </div>
 
-              {error && (
-                <p className="text-sm text-red-600" role="alert">
-                  {error}
-                </p>
-              )}
+              <CandidateNotice />
 
-              {success && (
-                <p className="text-sm text-emerald-700" role="status">
-                  {success}
-                </p>
-              )}
-
-              <div className="flex items-center justify-between gap-3 pt-1">
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                 <button
                   type="button"
                   className="inline-flex items-center gap-1 text-sm text-ufac-blue hover:underline"
                   onClick={() => {
                     setError(null);
-                    setSuccess(null);
                     setMode('login');
                   }}
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
                   Voltar ao login
                 </button>
-                {!success && (
-                  <Button type="submit" className="bg-ufac-blue" disabled={submitting}>
-                    {submitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Enviando…
-                      </>
-                    ) : (
-                      'Enviar e-mail'
-                    )}
-                  </Button>
-                )}
+                <Button asChild className="bg-ufac-blue">
+                  <a href={buildResetMailto(username)}>
+                    <Mail className="mr-2 h-4 w-4" aria-hidden />
+                    Escrever para a Ascom
+                  </a>
+                </Button>
               </div>
-            </form>
+            </div>
           )}
         </div>
       </DialogContent>

@@ -2,7 +2,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMenuItems } from '@/hooks/useMenuItems';
 import { cn } from '@/lib/utils';
 import { MenuItem } from '@/services/editalService';
-import { ChevronDown, Folder, FolderOpen, Star } from 'lucide-react';
+import {
+  ChevronDown,
+  ExternalLink,
+  File,
+  FileText,
+  Folder,
+  FolderOpen,
+  Star,
+} from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -15,12 +23,6 @@ interface SidebarContentProps {
   closeSidebar: () => void;
   isCollapsed?: boolean;
 }
-
-const isFolderItem = (item: MenuItem) =>
-  Boolean(item.isGroup) ||
-  Boolean(item.children?.length) ||
-  item['@type'] === 'Folder' ||
-  item['@type'] === 'Collection';
 
 const SidebarContent: React.FC<SidebarContentProps> = ({
   closeSidebar,
@@ -76,60 +78,67 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
     closeSidebar();
   };
 
-  const renderNavLink = (item: MenuItem, depth: number) => {
-    const style = depth > 0 ? { paddingLeft: `${0.75 + depth * 0.65}rem` } : undefined;
-    const showFolder = isFolderItem(item);
+  /**
+   * Ícone do item-folha conforme o tipo Plone. Sem tipo conhecido, é pasta
+   * (o @navigation não informa o tipo; páginas/links vêm de uma busca à parte).
+   */
+  const leafIconFor = (item: MenuItem, isExternal: boolean) => {
+    if (isExternal || item['@type'] === 'Link') return ExternalLink;
+    if (item['@type'] === 'Document') return FileText;
+    if (item['@type'] === 'File') return File;
+    return Folder;
+  };
 
-    if (item.href.startsWith('http')) {
-      return (
-        <a
-          key={`${item.id}-${item.href}`}
-          href={item.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={handleDirectLinkClick}
-          title={item.title}
-          style={style}
-          className={cn(
-            'flex items-start gap-1.5 rounded-md py-1.5 pr-3 text-sm text-gray-600 hover:bg-gray-100 hover:text-ufac-blue',
-            depth === 0 && 'px-3 py-2 text-gray-700'
-          )}
-        >
-          {showFolder && (
-            <Folder className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
-          )}
-          <span className="min-w-0 flex-1 line-clamp-2">{item.title}</span>
-        </a>
-      );
-    }
+  /** Folha da árvore — mesma grade das pastas (coluna da seta + ícone + título). */
+  const renderNavLink = (item: MenuItem, depth: number) => {
+    const isExternal = item.href.startsWith('http');
+    const active = !isExternal && isItemActive(item);
+    const Icon = leafIconFor(item, isExternal);
+    const titleClass = cn(
+      'min-w-0 flex-1 rounded-md px-1 py-1.5 text-sm line-clamp-2',
+      active ? 'font-medium text-ufac-blue' : 'text-gray-700 hover:text-ufac-blue'
+    );
 
     return (
-      <Link
+      <div
         key={`${item.id}-${item.href}`}
-        href={item.href}
-        onClick={handleDirectLinkClick}
-        title={item.title}
-        style={style}
+        style={{ paddingLeft: `${0.75 + depth * 0.65}rem` }}
         className={cn(
-          'flex items-start gap-1.5 rounded-md py-1.5 pr-3 text-sm transition-colors',
-          depth === 0 && 'px-3 py-2',
-          isItemActive(item)
-            ? 'bg-ufac-lightBlue font-medium text-ufac-blue'
-            : 'text-gray-600 hover:bg-gray-100 hover:text-ufac-blue',
+          'flex w-full items-center gap-0.5 rounded-md py-0.5 pr-1 transition-colors',
+          active ? 'bg-ufac-lightBlue' : 'hover:bg-gray-50',
           depth > 0 && 'ml-2 border-l border-slate-200'
         )}
       >
-        {showFolder && (
-          <Folder
-            className={cn(
-              'mt-0.5 h-3.5 w-3.5 shrink-0',
-              isItemActive(item) ? 'text-ufac-blue' : 'text-slate-400'
-            )}
-            aria-hidden
-          />
+        <span className="h-7 w-7 shrink-0" aria-hidden />
+        <Icon
+          className={cn(
+            'h-3.5 w-3.5 shrink-0',
+            active ? 'text-ufac-blue' : 'text-slate-400'
+          )}
+          aria-hidden
+        />
+        {isExternal ? (
+          <a
+            href={item.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={handleDirectLinkClick}
+            title={item.title}
+            className={titleClass}
+          >
+            {item.title}
+          </a>
+        ) : (
+          <Link
+            href={item.href}
+            onClick={handleDirectLinkClick}
+            title={item.title}
+            className={titleClass}
+          >
+            {item.title}
+          </Link>
         )}
-        <span className="min-w-0 flex-1 line-clamp-2">{item.title}</span>
-      </Link>
+      </div>
     );
   };
 

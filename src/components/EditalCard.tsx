@@ -2,6 +2,7 @@
 
 import FavoriteStarButton from '@/components/FavoriteStarButton';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { splitEditalTitle } from '@/lib/editalTitle';
 import { cn } from '@/lib/utils';
 import { EditalItem } from '@/services/editalService';
 import { motion } from 'framer-motion';
@@ -93,6 +94,7 @@ const EditalCard: React.FC<EditalCardProps> = ({
 	const isMobile = useIsMobile();
 	const displayTitle = title || state?.title || 'Título não disponível';
 	const favoriteId = state?.['@id'] || href;
+	const { identifier, subject } = splitEditalTitle(displayTitle);
 
 	const favoriteButton = showFavorite ? (
 		<FavoriteStarButton
@@ -128,11 +130,16 @@ const EditalCard: React.FC<EditalCardProps> = ({
 							{icon}
 						</div>
 						<div className='flex flex-col min-w-0'>
+							{identifier && (
+								<span className='truncate text-xs font-medium text-neutral-500'>
+									{identifier}
+								</span>
+							)}
 							<h3
-								className='truncate text-base font-semibold text-slate-500'
+								className='truncate text-base font-semibold text-slate-600'
 								title={displayTitle}
 							>
-								{displayTitle}
+								{subject}
 							</h3>
 							<div className='text-neutral-400 text-xs flex flex-wrap gap-x-3 gap-y-1 mt-1'>
 								{date && (
@@ -178,87 +185,83 @@ const EditalCard: React.FC<EditalCardProps> = ({
 				>
 					<div
 						className={cn(
-							'flex flex-col h-full',
-							compact ? 'gap-3 p-3.5 sm:p-4' : 'p-4 sm:p-6 md:p-8'
+							'flex flex-col h-full gap-3',
+							compact ? 'p-3.5 sm:p-4' : 'p-4 sm:p-5 md:p-6'
 						)}
 					>
-						<div className='flex items-start justify-between gap-2'>
+						<div className='flex items-center gap-3 pr-9 sm:pr-10'>
 							<div
 								className={cn(
-									'flex items-center justify-center rounded-full shrink-0',
+									'flex items-center justify-center rounded-full shrink-0 [&>*]:!h-5 [&>*]:!w-5',
 									color,
-									compact
-										? 'h-10 w-10'
-										: isMobile
-											? 'w-12 h-12 min-w-[40px] min-h-[40px]'
-											: 'w-14 h-14 min-w-[48px] min-h-[48px]'
+									compact ? 'h-9 w-9' : 'h-10 w-10'
 								)}
 							>
 								{icon}
 							</div>
-						</div>
-
-						{!compact && (
-							<div className='flex-grow min-h-[8px] sm:min-h-[16px]' />
-						)}
-
-						<div className='text-neutral-400 text-sm flex flex-wrap items-center gap-x-3 gap-y-1'>
-							{date && (
-								<div className='flex items-center gap-1.5 text-xs'>
-									<CalendarDays size={compact ? 14 : 16} className='shrink-0' />
-									{date}
-								</div>
-							)}
-							{hour && (
-								<div className='flex items-center gap-1.5 text-xs'>
-									{getClockIconByHour(hour)}
-									{hour}
-								</div>
-							)}
+							<div className='text-neutral-400 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs'>
+								{date && (
+									<span className='flex items-center gap-1.5'>
+										<CalendarDays size={14} className='shrink-0' />
+										{date}
+									</span>
+								)}
+								{hour && (
+									<span className='flex items-center gap-1.5'>
+										{getClockIconByHour(hour)}
+										{hour}
+									</span>
+								)}
+							</div>
 						</div>
 
 						{setor && (
-							<span className='mt-1 inline-flex w-fit rounded-full bg-ufac-lightBlue px-2.5 py-0.5 text-xs font-semibold text-ufac-blue'>
+							<span className='inline-flex w-fit rounded-full bg-ufac-lightBlue px-2.5 py-0.5 text-xs font-semibold text-ufac-blue'>
 								{setor}
 							</span>
 						)}
 
-						<div className={cn(compact ? 'mt-1' : 'mt-auto')}>
+						<div>
+							{identifier && (
+								<p
+									className={cn(
+										'truncate font-medium text-neutral-500',
+										compact ? 'text-xs' : 'mb-0.5 text-xs sm:text-sm'
+									)}
+								>
+									{identifier}
+								</p>
+							)}
 							<h3
 								title={displayTitle}
 								className={cn(
-									'font-semibold text-ufac-blue-light line-clamp-2',
-									compact ? 'mb-0 text-sm sm:text-base' : 'mb-2 text-base sm:text-lg'
+									'font-semibold text-ufac-blue-light line-clamp-3',
+									compact ? 'text-sm sm:text-base' : 'text-base sm:text-lg'
 								)}
 							>
-								{displayTitle}
+								{subject}
 							</h3>
-							<div className='flex justify-between items-end gap-3'>
-								{!compact && description ? (
-									<p className='text-sm text-gray-700 hyphens-auto break-words line-clamp-3 sm:line-clamp-4'>
-										{description}
-									</p>
-								) : (
-									<span className='flex-1' />
+						</div>
+
+						<div className='mt-auto flex justify-between items-end gap-3'>
+							{!compact && description ? (
+								<p className='text-sm text-gray-700 hyphens-auto break-words line-clamp-3'>
+									{description}
+								</p>
+							) : (
+								<span className='flex-1' />
+							)}
+							<span
+								className={cn(
+									'rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 self-end transition-colors group-hover:bg-ufac-lightBlue',
+									compact ? 'h-8 w-8' : 'h-10 w-10'
 								)}
-								<span
-									className={cn(
-										'rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 self-end transition-colors group-hover:bg-ufac-lightBlue',
-										compact ? 'h-8 w-8' : isMobile ? 'w-10 h-10' : 'w-12 h-12'
-									)}
-									aria-hidden='true'
-								>
-									<ArrowRight
-										className={
-											compact
-												? 'h-4 w-4 text-gray-900'
-												: isMobile
-													? 'h-5 w-5 text-gray-900'
-													: 'h-6 w-6 text-gray-900'
-										}
-									/>
-								</span>
-							</div>
+								aria-hidden='true'
+							>
+								<ArrowRight
+									className={compact ? 'h-4 w-4 text-gray-900' : 'h-5 w-5 text-gray-900'}
+								/>
+							</span>
 						</div>
 					</div>
 				</motion.div>

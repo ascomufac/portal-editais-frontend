@@ -30,6 +30,10 @@ const proReitoriaMap: Record<string, { abbreviation: string; fullName: string }>
     abbreviation: 'Prodgep',
     fullName: 'Pró-reitoria de Gestão de Pessoas',
   },
+  'Ações Afirmativas e Equidade': {
+    abbreviation: 'Proafe',
+    fullName: 'Pró-reitoria de Ações Afirmativas e Equidade',
+  },
   Prograd: {
     abbreviation: 'Prograd',
     fullName: 'Pró-reitoria de Graduação',
@@ -49,6 +53,10 @@ const proReitoriaMap: Record<string, { abbreviation: string; fullName: string }>
   Prodgep: {
     abbreviation: 'Prodgep',
     fullName: 'Pró-reitoria de Gestão de Pessoas',
+  },
+  Proafe: {
+    abbreviation: 'Proafe',
+    fullName: 'Pró-reitoria de Ações Afirmativas e Equidade',
   },
 };
 

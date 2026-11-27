@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import AdminDriveIcon from '@/components/admin/AdminDriveIcon';
+import AdminEditalTitle from '@/components/admin/AdminEditalTitle';
 import AdminItemHoverCard from '@/components/admin/AdminItemHoverCard';
 import AdminLocationPill from '@/components/admin/AdminLocationPill';
 import AdminRecentItemActions from '@/components/admin/AdminRecentItemActions';
@@ -34,6 +35,31 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 const RECENT_VIEW_KEY = 'ufac-admin-home-recent-view';
+/** Quantas pastas sugerir no início do painel. */
+const SUGGESTED_FOLDERS = 8;
+
+/**
+ * Pastas sugeridas: as últimas que o usuário criou. Quem ainda não criou
+ * nenhuma vê as pastas da raiz do portal (setores).
+ */
+const loadSuggestedFolders = async (
+  username?: string
+): Promise<{ items: PloneContentItem[]; mine: boolean }> => {
+  if (username) {
+    const created = await listRecentActivity({
+      Creator: username,
+      portal_type: 'Folder',
+      sort_on: 'created',
+      b_size: SUGGESTED_FOLDERS,
+    }).catch(() => null);
+    if (created?.items.length) return { items: created.items, mine: true };
+  }
+  const root = await listFolderContents('');
+  return {
+    items: root.items.filter(isFolderishContent).slice(0, SUGGESTED_FOLDERS),
+    mine: false,
+  };
+};
 
 const formatRelative = (value?: string | null) => {
   if (!value) return '—';
@@ -89,6 +115,7 @@ const AdminHome: React.FC = () => {
   const displayName = user?.fullname || user?.username || 'Usuário';
   const firstName = displayName.split(' ')[0];
   const [folders, setFolders] = useState<PloneContentItem[]>([]);
+  const [foldersAreMine, setFoldersAreMine] = useState(false);
   const [recent, setRecent] = useState<PloneContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [recentLoading, setRecentLoading] = useState(true);
@@ -116,12 +143,13 @@ const AdminHome: React.FC = () => {
       setLoading(true);
       setRecentLoading(true);
       try {
-        const [folderListing, activity] = await Promise.all([
-          listFolderContents(''),
+        const [suggested, activity] = await Promise.all([
+          loadSuggestedFolders(user?.username),
           listRecentActivity({ b_size: 12 }),
         ]);
         if (!cancelled) {
-          setFolders(folderListing.items.filter(isFolderishContent).slice(0, 8));
+          setFolders(suggested.items);
+          setFoldersAreMine(suggested.mine);
           setRecent(activity.items.slice(0, 12));
         }
       } catch {
@@ -140,7 +168,7 @@ const AdminHome: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user?.username]);
 
   const openRecent = (item: PloneContentItem) => {
     const path = toPlonePath(item['@id']);
@@ -162,11 +190,11 @@ const AdminHome: React.FC = () => {
           Olá, {firstName}!
         </h1>
         <p className="mt-2 text-slate-500">
-          Gerencie pastas, PDFs e links do Portal de Editais no Portal de Editais da Ufac.
+          Gerencie pastas, PDFs e links do Portal de Editais da Ufac.
         </p>
       </header>
 
-      <section className="space-y-3">
+      <section className="space-y-3" data-tour="admin-recent">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="flex items-center gap-1 text-sm font-medium text-slate-700">
             <ChevronDown className="h-4 w-4" />
@@ -282,9 +310,7 @@ const AdminHome: React.FC = () => {
                       <div className="flex min-w-0 items-center gap-1.5">
                         <div className="min-w-0 flex-1 overflow-hidden">
                           <AdminItemHoverCard item={item} side="top" align="start">
-                            <p className="truncate font-medium leading-snug text-slate-900">
-                              {getContentDisplayName(item)}
-                            </p>
+                            <AdminEditalTitle title={getContentDisplayName(item)} />
                           </AdminItemHoverCard>
                         </div>
                         <AdminReviewStateBadge state={state} />
@@ -304,7 +330,7 @@ const AdminHome: React.FC = () => {
       <section className="space-y-3">
         <p className="flex items-center gap-1 text-sm font-medium text-slate-700">
           <ChevronDown className="h-4 w-4" />
-          Pastas sugeridas
+          {foldersAreMine ? 'Suas pastas recentes' : 'Pastas sugeridas'}
         </p>
 
         {loading ? (
@@ -333,34 +359,19 @@ const AdminHome: React.FC = () => {
               >
                 <AdminDriveIcon item={folder} />
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <p className="flex min-w-0 items-center gap-1.5 truncate font-medium text-slate-900">
-                    <span className="truncate">{getContentDisplayName(folder)}</span>
+                  <AdminEditalTitle title={getContentDisplayName(folder)} />
+                  <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                    <p className="truncate text-xs text-slate-500">
+                      {foldersAreMine ? formatContentLocation(folder) : 'em Editais'}
+                    </p>
                     <AdminReviewStateBadge state={getReviewState(folder)} />
-                  </p>
-                  <p className="truncate text-xs text-slate-500">em Editais</p>
+                  </div>
                 </div>
                 <MoreVertical className="h-4 w-4 shrink-0 text-slate-400 opacity-0 group-hover:opacity-100" />
               </Link>
             ))}
           </div>
         )}
-      </section>
-
-      <section className="space-y-3">
-        <p className="flex items-center gap-1 text-sm font-medium text-slate-700">
-          <ChevronDown className="h-4 w-4" />
-          Atalhos
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild className="rounded-full bg-ufac-blue">
-            <Link to="/admin/conteudo">Abrir Editais</Link>
-          </Button>
-          <Button asChild variant="outline" className="rounded-full bg-white">
-            <Link to="/admin/conteudo" state={{ intent: { kind: 'upload' } }}>
-              Enviar arquivos
-            </Link>
-          </Button>
-        </div>
       </section>
     </div>
   );

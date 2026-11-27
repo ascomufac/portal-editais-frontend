@@ -73,6 +73,14 @@ export const GestaoPessoasIcon = () => (
   </svg>
 );
 
+export const AcoesAfirmativasIcon = () => (
+  <svg width="100%" height="100%" viewBox="0 1 24 22" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+    <path d="M16 16L19 8L22 16C21.13 16.65 20.08 17 19 17C17.92 17 16.87 16.65 16 16Z" fill="#DCE2FF"/>
+    <path d="M2 16L5 8L8 16C7.13 16.65 6.08 17 5 17C3.92 17 2.87 16.65 2 16Z" fill="#DCE2FF"/>
+    <path d="M16 16L19 8L22 16C21.13 16.65 20.08 17 19 17C17.92 17 16.87 16.65 16 16ZM2 16L5 8L8 16C7.13 16.65 6.08 17 5 17C3.92 17 2.87 16.65 2 16ZM7 21H17M12 3V21M3 7H5C7 7 10 6 12 5C14 6 17 7 19 7H21" stroke="#4769FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
 export const CentroIdiomasIcon = () => (
   <svg width="100%" height="100%" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
     <path d="M4 7L10 13L4 7Z" fill="#DCE2FF"/>

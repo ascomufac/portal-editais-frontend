@@ -26,11 +26,14 @@ import {
 } from '@/components/ui/context-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import AdminEditalTitle from '@/components/admin/AdminEditalTitle';
 import AdminFilePreviewPanel from '@/components/admin/AdminFilePreviewPanel';
 import AdminDriveIcon from '@/components/admin/AdminDriveIcon';
 import ContentEditorDialog from '@/components/admin/ContentEditorDialog';
 import HistoryDialog from '@/components/admin/HistoryDialog';
 import SelectionToolbar, { type SortKey } from '@/components/admin/SelectionToolbar';
+import ProductTour from '@/components/tour/ProductTour';
+import { ADMIN_CONTENT_TOUR } from '@/components/tour/tourSteps';
 import { modifiedAfterFromPreset } from '@/components/admin/adminSearchUtils';
 import { invalidateAdminFolderTreeCache } from '@/components/admin/AdminFolderTree';
 import { copyShareLink } from '@/components/admin/shareLink';
@@ -1154,7 +1157,7 @@ const ContentBrowser: React.FC = () => {
     <div className="flex h-full min-h-0 flex-col gap-4">
       {/* Título + view toggle */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0" data-tour="admin-content-title">
           <nav className="mb-1 flex flex-wrap items-center gap-1 text-sm text-slate-500">
             <Link
               to="/admin/conteudo"
@@ -1219,7 +1222,10 @@ const ContentBrowser: React.FC = () => {
           </DropdownMenu>
         </div>
 
-        <div className="flex items-center gap-1 rounded-full bg-slate-100 p-1">
+        <div
+          className="flex items-center gap-1 rounded-full bg-slate-100 p-1"
+          data-tour="admin-content-view"
+        >
           <Button
             type="button"
             variant="ghost"
@@ -1363,7 +1369,7 @@ const ContentBrowser: React.FC = () => {
           )}
         </div>
       ) : viewMode === 'grid' ? (
-        <div className="w-full space-y-2">
+        <div className="w-full space-y-2" data-tour="admin-content-items">
           <button
             type="button"
             onClick={() => handleColumnSort('name')}
@@ -1417,12 +1423,11 @@ const ContentBrowser: React.FC = () => {
                         <AdminDriveIcon item={item} compact />
                       </span>
                       <div className="flex min-h-8 min-w-0 flex-1 items-center gap-1.5 self-center">
-                        <p
-                          className="line-clamp-2 break-words text-left text-sm font-medium leading-tight text-slate-900"
+                        <AdminEditalTitle
                           title={getContentDisplayName(item)}
-                        >
-                          {getContentDisplayName(item)}
-                        </p>
+                          className="flex-1 text-left"
+                          subjectClassName="text-sm leading-tight"
+                        />
                         {stateBadge(item)}
                       </div>
                     </div>,
@@ -1470,7 +1475,7 @@ const ContentBrowser: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="min-w-0">
+        <div className="min-w-0" data-tour="admin-content-items">
           <div className="grid grid-cols-[28px_minmax(0,1fr)_40px] gap-2 border-b border-slate-100 px-2 pb-2 text-xs font-medium text-slate-500 sm:grid-cols-[28px_minmax(0,1.4fr)_120px_140px_40px] lg:grid-cols-[28px_minmax(0,1.4fr)_140px_150px_100px_40px]">
             <div className="flex items-center">
               <Checkbox
@@ -1752,6 +1757,12 @@ const ContentBrowser: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Abre sozinho na primeira visita, depois que a lista carrega. */}
+      <ProductTour
+        tour={ADMIN_CONTENT_TOUR}
+        ready={!loading && !previewItem && filteredItems.length > 0}
+      />
     </div>
   );
 };

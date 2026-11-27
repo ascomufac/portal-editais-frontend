@@ -593,11 +593,20 @@ export const listRecentActivity = async (
     Creator?: string;
     portal_type?: string | string[];
     review_state?: string | string[];
+    /** Ordenação (mais recente primeiro). Padrão: modificação. */
+    sort_on?: 'modified' | 'created';
   } = {}
 ): Promise<{ items: PloneContentItem[]; items_total: number }> => {
-  const { b_size = 40, b_start = 0, Creator, portal_type, review_state } = options;
+  const {
+    b_size = 40,
+    b_start = 0,
+    Creator,
+    portal_type,
+    review_state,
+    sort_on = 'modified',
+  } = options;
   const params = new URLSearchParams();
-  params.append('sort_on', 'modified');
+  params.append('sort_on', sort_on);
   params.append('sort_order', 'descending');
   params.append('b_size', String(b_size));
   params.append('b_start', String(b_start));

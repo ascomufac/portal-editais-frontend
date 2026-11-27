@@ -79,7 +79,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               </button>
             )}
 
-            <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-0 flex-1 flex-col" data-tour="sidebar-menu">
               <SidebarContent
                 closeSidebar={closeSidebar}
                 isCollapsed={!isMobile && isCollapsed}

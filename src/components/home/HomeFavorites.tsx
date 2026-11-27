@@ -14,7 +14,7 @@ const HomeFavorites: React.FC = () => {
   const items = favorites.slice(0, MAX_ITEMS);
 
   return (
-    <aside aria-labelledby="home-favorites-title">
+    <aside aria-labelledby="home-favorites-title" data-tour="home-favorites">
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <h2
           id="home-favorites-title"

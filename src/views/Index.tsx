@@ -24,6 +24,8 @@ import {
   type UpdatesPeriod,
 } from '@/lib/updates';
 import FilterToolbar, { SortOption } from '@/components/filters/FilterToolbar';
+import ProductTour from '@/components/tour/ProductTour';
+import { HOME_TOUR } from '@/components/tour/tourSteps';
 
 const formatCardDate = (dateString?: string): { date: string; hour: string } => {
   if (!dateString) return { date: '', hour: '' };
@@ -181,7 +183,7 @@ const Index: React.FC<{
           <SectorShortcuts />
         </motion.div>
 
-        <motion.div variants={itemVariants}>
+        <motion.div variants={itemVariants} data-tour="home-featured">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 sm:mb-3">
             <h2 className="text-lg font-semibold text-gray-900 sm:text-xl">
               Editais em destaque
@@ -279,6 +281,7 @@ const Index: React.FC<{
           </div>
         </motion.div>
       </motion.div>
+      <ProductTour tour={HOME_TOUR} />
     </MainLayout>
   );
 };

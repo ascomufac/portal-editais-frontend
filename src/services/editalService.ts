@@ -26,6 +26,7 @@ export const setorTitles: Record<string, string> = {
   proex: 'Extensão e Cultura',
   proaes: 'Assuntos Estudantis',
   prodgep: 'Gestão de Pessoas',
+  proafe: 'Ações Afirmativas e Equidade',
   'centro-idiomas': 'Centro de Idiomas',
   'colegio-de-aplicacao': 'Colégio de Aplicação',
   'conselho-universitario': 'Conselho Universitário',
@@ -38,7 +39,7 @@ export const setorTitles: Record<string, string> = {
   proplan: 'Proplan',
 };
 
-const PRO_REITORIA_IDS = ['prograd', 'propeg', 'proex', 'proaes', 'prodgep'] as const;
+const PRO_REITORIA_IDS = ['prograd', 'propeg', 'proex', 'proaes', 'prodgep', 'proafe'] as const;
 
 export type ProReitoriaId = (typeof PRO_REITORIA_IDS)[number];
 
@@ -92,6 +93,7 @@ const MENU_PRIORITY_IDS = [
   'proex',
   'proaes',
   'prodgep',
+  'proafe',
   'proplan',
   // Unidades de ensino
   'colegio-de-aplicacao',
@@ -544,6 +546,30 @@ const mapApiItemToMenuItem = (
 };
 
 /**
+ * O @navigation não informa o tipo dos itens. Busca, numa única consulta, os
+ * itens que não são pasta (páginas, links, coleções) até a profundidade do menu;
+ * o restante da árvore é pasta.
+ */
+const fetchMenuNonFolderTypes = async (): Promise<Map<string, string>> => {
+  const params = new URLSearchParams({
+    'path.depth': String(MENU_NAV_DEPTH),
+    b_size: '500',
+  });
+  ['Document', 'Link', 'Collection'].forEach((t) => params.append('portal_type', t));
+  const data = await apiRequest<{ items?: Array<{ '@id': string; '@type': string }> }>(
+    `@search?${params.toString()}`
+  );
+  return new Map((data.items || []).map((item) => [toSitePath(item['@id']), item['@type']]));
+};
+
+const applyMenuTypes = (items: MenuItem[], types: Map<string, string>): MenuItem[] =>
+  items.map((item) => ({
+    ...item,
+    '@type': item['@type'] ?? (item['@id'] ? types.get(toSitePath(item['@id'])) : undefined),
+    children: item.children ? applyMenuTypes(item.children, types) : undefined,
+  }));
+
+/**
  * Menu do portal via @navigation do Plone (com submenus) + Links extras da raiz.
  */
 export const fetchMenuItems = async (): Promise<MenuItem[]> => {
@@ -553,16 +579,25 @@ export const fetchMenuItems = async (): Promise<MenuItem[]> => {
 
   try {
     // Navegação oficial do Plone (mesma base do portal www3)
-    const nav = await apiRequest<{ items?: PloneNavNode[] }>(
-      `@navigation?expand.navigation.depth=${MENU_NAV_DEPTH}`
-    );
+    const [nav, menuTypes] = await Promise.all([
+      apiRequest<{ items?: PloneNavNode[] }>(
+        `@navigation?expand.navigation.depth=${MENU_NAV_DEPTH}`
+      ),
+      fetchMenuNonFolderTypes().catch((err) => {
+        console.warn('Não foi possível obter os tipos dos itens do menu:', err);
+        return new Map<string, string>();
+      }),
+    ]);
 
-    const fromNav = (nav.items || [])
-      .filter((node) => {
-        const path = toSitePath(node['@id']);
-        return path !== '' && path !== '/' && node.title !== 'Home';
-      })
-      .map((node) => mapNavNodeToMenuItem(node));
+    const fromNav = applyMenuTypes(
+      (nav.items || [])
+        .filter((node) => {
+          const path = toSitePath(node['@id']);
+          return path !== '' && path !== '/' && node.title !== 'Home';
+        })
+        .map((node) => mapNavNodeToMenuItem(node)),
+      menuTypes
+    );
 
     // Complementa com itens da raiz que não entram no @navigation (ex.: Links)
     let extras: MenuItem[] = [];

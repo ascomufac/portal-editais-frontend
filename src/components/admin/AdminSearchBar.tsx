@@ -289,6 +289,7 @@ const AdminSearchBar: React.FC<AdminSearchBarProps> = ({
       <div
         ref={rootRef}
         className={cn('relative z-[60] mx-auto w-full max-w-2xl flex-1', className)}
+        data-tour="admin-search"
       >
         {/* Placeholder mantém a altura do header enquanto o painel é absolute */}
         <div className="h-12 w-full" aria-hidden={!open ? undefined : true}>

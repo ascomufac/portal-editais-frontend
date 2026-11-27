@@ -44,7 +44,12 @@ const HomeHero: React.FC<HomeHeroProps> = ({ activePeriod, onPeriodChange }) => 
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row" role="search">
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-3 sm:flex-row"
+        role="search"
+        data-tour="home-search"
+      >
         <label htmlFor="home-search" className="sr-only">
           Pesquisar editais
         </label>
@@ -67,7 +72,7 @@ const HomeHero: React.FC<HomeHeroProps> = ({ activePeriod, onPeriodChange }) => 
         </button>
       </form>
 
-      <div className="flex flex-wrap items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-2.5" data-tour="home-shortcuts">
         <span className="text-sm font-medium text-blue-100">Atalhos:</span>
         {SHORTCUT_PERIODS.map((period) => (
           <button
