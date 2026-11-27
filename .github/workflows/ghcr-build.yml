@@ -51,6 +51,8 @@ jobs:
           context: .
           push: true
           build-args: |
+            NEXT_PUBLIC_SITE_URL=https://www3.ufac.br
+            PLONE_ORIGIN=https://www3.ufac.br
             NEXT_PUBLIC_APP_VERSION=${{ steps.meta.outputs.version }}
             NEXT_PUBLIC_GIT_SHA=${{ steps.meta.outputs.sha }}
             NEXT_PUBLIC_BUILD_TIME=${{ steps.meta.outputs.build_time }}
