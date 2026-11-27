@@ -14,6 +14,7 @@ const SECTOR_IDS = new Set([
   'proex',
   'proaes',
   'prodgep',
+  'proafe',
   'proplan',
   'colegio-de-aplicacao',
   'centros',
@@ -34,7 +35,7 @@ const SectorShortcuts: React.FC = () => {
   if (!isLoading && sectors.length === 0) return null;
 
   return (
-    <section aria-labelledby="home-sectors-title">
+    <section aria-labelledby="home-sectors-title" data-tour="home-sectors">
       <h2
         id="home-sectors-title"
         className="mb-3 text-lg font-semibold text-gray-900 sm:text-xl"

@@ -599,25 +599,23 @@ const EditalFolderNavigator: React.FC<EditalFolderNavigatorProps> = ({
 				{itemTypeFilter !== 'folder' &&
 					!(showFeaturedLatest && files.length <= 1) && (
 						<section>
-							<div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-								<div>
-									<h2 className="text-sm font-semibold text-slate-800 sm:text-base">
-										{showFeaturedLatest
-											? 'Publicações anteriores'
-											: 'Histórico de publicações'}
-									</h2>
-									<p className="text-xs text-slate-500 sm:text-sm">
-										{showFeaturedLatest
-											? 'Demais documentos oficiais deste edital'
-											: 'Linha do tempo — do mais recente ao mais antigo'}
-									</p>
-								</div>
+							<div className="mb-4 flex flex-wrap items-end justify-between gap-3 empty:hidden">
+								{showFeaturedLatest && (
+									<div>
+										<h2 className="text-sm font-semibold text-slate-800 sm:text-base">
+											Publicações anteriores
+										</h2>
+										<p className="text-xs text-slate-500 sm:text-sm">
+											Demais documentos oficiais deste edital
+										</p>
+									</div>
+								)}
 								{files.length > 1 && (
 									<Button
 										type="button"
 										variant="outline"
 										size="sm"
-										className="h-9 gap-1.5 rounded-full text-xs text-slate-600"
+										className="ml-auto h-9 gap-1.5 rounded-full text-xs text-slate-600"
 										onClick={() => setNewestFirst((v) => !v)}
 									>
 										<ArrowUpDown className="h-3.5 w-3.5" />

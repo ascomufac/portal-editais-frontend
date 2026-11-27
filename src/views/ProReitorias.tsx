@@ -3,6 +3,7 @@
 import EditalCard from '@/components/EditalCard';
 import CategoryHeader from '@/components/category/CategoryHeader';
 import {
+  AcoesAfirmativasIcon,
   AssuntosEstudantisIcon,
   ExtensaoIcon,
   GestaoPessoasIcon,
@@ -46,6 +47,11 @@ const iconMap: Record<string, React.JSX.Element> = {
       <GestaoPessoasIcon />
     </div>
   ),
+  proafe: (
+    <div className="w-8 h-8">
+      <AcoesAfirmativasIcon />
+    </div>
+  ),
 };
 
 const colorMap: Record<string, string> = {
@@ -55,6 +61,7 @@ const colorMap: Record<string, string> = {
   proex: 'bg-purple-50',
   proaes: 'bg-green-50',
   prodgep: 'bg-yellow-50',
+  proafe: 'bg-rose-50',
 };
 
 const descriptions: Record<string, string> = {
@@ -63,6 +70,7 @@ const descriptions: Record<string, string> = {
   proex: 'Pró-reitoria de Extensão e Cultura',
   proaes: 'Pró-reitoria de Assuntos Estudantis',
   prodgep: 'Pró-reitoria de Gestão de Pessoas',
+  proafe: 'Pró-reitoria de Ações Afirmativas e Equidade',
 };
 
 const containerVariants = {

@@ -4,6 +4,7 @@ import AuthMenu from '@/components/auth/AuthMenu';
 import UfacEditaisLogo from '@/components/brand/UfacEditaisLogo';
 import Sidebar from '@/components/Sidebar';
 import SearchBar from '@/components/SearchBar';
+import TourButton from '@/components/tour/TourButton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn, getSidebarCollapsedState, toggleSidebarCookie } from '@/lib/utils';
 import React, { useEffect, useState } from 'react';
@@ -122,6 +123,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                       <Search className="h-5 w-5" />
                     </Button>
                   )}
+                  <TourButton />
                   <AuthMenu />
                 </div>
               ) : (
@@ -129,6 +131,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                   <div className="flex min-w-0 flex-1 justify-end px-2 sm:px-4 md:justify-center">
                     {!hideHeaderSearch && <SearchBar compact />}
                   </div>
+                  <TourButton />
                   <AuthMenu />
                 </>
               )}

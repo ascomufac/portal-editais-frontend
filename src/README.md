@@ -35,6 +35,7 @@ O portal organiza os documentos nas seguintes categorias:
 - Extensão e Cultura (Proex)
 - Assuntos Estudantis (Proaes)
 - Gestão de Pessoas (Prodgep)
+- Ações Afirmativas e Equidade (Proafe)
 - Centro de Idiomas
 - Colégio de Aplicação
 

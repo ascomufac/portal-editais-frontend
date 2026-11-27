@@ -5,6 +5,21 @@ import { CalendarClock, Loader2, X } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { splitEditalTitle } from '@/lib/editalTitle';
+import { readableTitle } from '@/lib/titleCase';
+
+/** Número do edital pequeno em cima e assunto em destaque (como nos cards). */
+const UpdateTitle: React.FC<{ title: string }> = ({ title }) => {
+  const { identifier, subject } = splitEditalTitle(readableTitle(title));
+  return (
+    <div title={title}>
+      {identifier && (
+        <p className="truncate text-xs font-medium text-gray-500">{identifier}</p>
+      )}
+      <p className="line-clamp-3 text-sm font-semibold text-gray-900">{subject}</p>
+    </div>
+  );
+};
 
 export interface Update {
   id: string;
@@ -93,7 +108,12 @@ const UpdatesSection: React.FC<UpdatesSectionProps> = ({
   }, [updates, today]);
 
   return (
-    <section id="atualizacoes" aria-labelledby="home-updates-title" className="scroll-mt-4">
+    <section
+      id="atualizacoes"
+      aria-labelledby="home-updates-title"
+      className="scroll-mt-4"
+      data-tour="home-updates"
+    >
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <h2
           id="home-updates-title"
@@ -147,12 +167,7 @@ const UpdatesSection: React.FC<UpdatesSectionProps> = ({
                         transition={{ delay: Math.min(index, 8) * 0.03 }}
                         className="cursor-pointer px-4 py-3 hover:bg-gray-50"
                       >
-                        <p
-                          className="line-clamp-3 text-sm font-medium text-gray-900"
-                          title={update.title}
-                        >
-                          {update.title}
-                        </p>
+                        <UpdateTitle title={update.title} />
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
                           {update.setor && (
                             <span className="rounded-full bg-ufac-lightBlue px-2.5 py-0.5 font-semibold text-ufac-blue">

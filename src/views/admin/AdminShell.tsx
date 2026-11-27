@@ -3,6 +3,12 @@ import AppVersion from '@/components/AppVersion';
 import AdminFolderTree from '@/components/admin/AdminFolderTree';
 import AdminScrollToTop from '@/components/admin/AdminScrollToTop';
 import AdminSearchBar from '@/components/admin/AdminSearchBar';
+import ProductTour from '@/components/tour/ProductTour';
+import {
+  ADMIN_CONTENT_TOUR,
+  ADMIN_TOUR,
+  startTour,
+} from '@/components/tour/tourSteps';
 import {
   adminDriveMenuContentClass,
   adminDriveMenuIconClass,
@@ -33,6 +39,7 @@ import {
   Lock,
   LogOut,
   GripVertical,
+  HelpCircle,
   Plus,
   Upload,
   User,
@@ -228,7 +235,24 @@ const AdminLayout: React.FC = () => {
         <AdminSearchBar currentUsername={user?.username} />
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          <Button variant="ghost" size="sm" className="hidden rounded-full sm:inline-flex" asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full text-slate-600"
+            data-tour="tour-button"
+            title="Conhecer o painel"
+            aria-label="Conhecer o painel (tour guiado)"
+            onClick={() => startTour(onContent ? ADMIN_CONTENT_TOUR.id : ADMIN_TOUR.id)}
+          >
+            <HelpCircle className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="hidden rounded-full sm:inline-flex"
+            data-tour="admin-portal"
+            asChild
+          >
             <a href="/">
               <Home className="mr-1.5 h-4 w-4" />
               Portal
@@ -305,7 +329,7 @@ const AdminLayout: React.FC = () => {
             } as React.CSSProperties
           }
         >
-          <div className="px-1 pb-3 sm:px-2">
+          <div className="px-1 pb-3 sm:px-2" data-tour="admin-new">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button className="h-14 w-14 justify-center gap-2 rounded-2xl bg-white px-3 text-base font-medium text-slate-800 shadow-md shadow-slate-300/40 hover:bg-slate-50 sm:w-auto sm:justify-start sm:px-5">
@@ -382,11 +406,17 @@ const AdminLayout: React.FC = () => {
             </div>
 
             {/* Árvore: área rolável que cresce com a sidebar */}
-            <div className="mt-1 min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1">
+            <div
+              className="mt-1 min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1"
+              data-tour="admin-tree"
+            >
               <AdminFolderTree onRootExpandedChange={handleTreeExpandedChange} />
             </div>
 
-            <div className="shrink-0 space-y-0.5 border-t border-slate-200/70 pt-2">
+            <div
+              className="shrink-0 space-y-0.5 border-t border-slate-200/70 pt-2"
+              data-tour="admin-feeds"
+            >
               {navItem(
                 '/admin/atividade',
                 'Últimas interações',
@@ -403,7 +433,7 @@ const AdminLayout: React.FC = () => {
                 <User className="h-5 w-5 shrink-0" />
               )}
               <a
-                href="https://www3.ufac.br"
+                href="https://www3.ufac.br/editais/view"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 rounded-full px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
@@ -485,6 +515,8 @@ const AdminLayout: React.FC = () => {
           <Outlet />
           <AdminScrollToTop scrollRef={mainRef} />
         </main>
+        {/* Visão geral: abre sozinha só no início do painel. */}
+        <ProductTour tour={ADMIN_TOUR} autoStart={/^\/admin\/?$/.test(location.pathname)} />
       </div>
     </div>
   );

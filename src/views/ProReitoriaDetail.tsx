@@ -2,6 +2,7 @@
 
 import EditalCard from '@/components/EditalCard';
 import {
+  AcoesAfirmativasIcon,
   AssuntosEstudantisIcon,
   ExtensaoIcon,
   GestaoPessoasIcon,
@@ -69,6 +70,17 @@ const proReitoriasMeta = {
     icon: (
       <div className="w-8 h-8">
         <GestaoPessoasIcon />
+      </div>
+    ),
+  },
+  proafe: {
+    title: 'Proafe',
+    fullTitle: 'Pró-reitoria de Ações Afirmativas e Equidade',
+    description:
+      'Promove políticas de ações afirmativas, inclusão e equidade na UFAC.',
+    icon: (
+      <div className="w-8 h-8">
+        <AcoesAfirmativasIcon />
       </div>
     ),
   },

@@ -14,6 +14,7 @@ const SETOR_TAGS: Record<string, string> = {
   proex: 'Proex',
   proaes: 'Proaes',
   prodgep: 'Prodgep',
+  proafe: 'Proafe',
   proplan: 'Proplan',
   'colegio-de-aplicacao': 'Colégio de Aplicação',
   'centro-idiomas': 'Centro de Idiomas',
